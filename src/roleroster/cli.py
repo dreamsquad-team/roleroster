@@ -27,8 +27,8 @@ def run_granted(args):
 def needs_shell(command):
     print(
         f"role {command} precisa do shell do roleroster (ele altera o terminal atual).\n"
-        "Rode `role init`, abra um novo terminal e use `role "
-        f"{command}` de novo.",
+        "Se ainda não rodou, use `role init`. Depois abra um terminal novo (ou rode `source ~/.zshrc`,\n"
+        f"`source ~/.bash_profile` no bash do macOS) e use `role {command}` de novo.",
         file=sys.stderr,
     )
     return EXIT_USAGE
