@@ -43,25 +43,47 @@ esac
 if [ -n "${ZSH_VERSION:-}" ]; then
   zmodload zsh/datetime
   _role_tick() { _ROLE_NOW=$EPOCHSECONDS; }
-  _AWS_ASSUME="${commands[assume]:-$HOME/.local/bin/assume}"
-  [ -x "$_AWS_ASSUME" ] || _AWS_ASSUME="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/assume"
-  # O script assume so usa `return` (em vez de `exit`, que fecharia o terminal) quando existe
-  # um alias com o mesmo nome. Por isso, no zsh, o alias precisa continuar aqui.
-  alias assume="source $_AWS_ASSUME"
+  _aws_path_assume() { print -r -- "${commands[assume]:-}"; }
 else
   _role_tick() { _ROLE_NOW=$(date +%s); }
-  _AWS_ASSUME="$(type -P assume 2>/dev/null)"
-  _AWS_ASSUME="${_AWS_ASSUME:-$HOME/.local/bin/assume}"
-  [ -x "$_AWS_ASSUME" ] || _AWS_ASSUME="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/assume"
+  _aws_path_assume() { type -P assume 2>/dev/null; }
   # No bash o assume detecta sozinho que foi lido com `source`; uma funcao basta.
   assume() { source "$_AWS_ASSUME" "$@"; }
 fi
+
+# Acha o script assume do Granted: no PATH, em ~/.local/bin (role init sem Homebrew) ou no Homebrew.
+# Devolve 1 se nao achou. Roda de novo antes de cada uso, porque o Granted pode ter sido instalado
+# depois que este terminal abriu.
+_aws_find_assume() {
+  local candidate
+  for candidate in "$(_aws_path_assume)" "$HOME/.local/bin/assume" "${HOMEBREW_PREFIX:-/opt/homebrew}/bin/assume"; do
+    if [ -n "$candidate" ] && [ -r "$candidate" ]; then
+      _AWS_ASSUME=$candidate
+      # O script assume so usa `return` (em vez de `exit`, que fecharia o terminal) quando existe
+      # um alias com o mesmo nome. Por isso, no zsh, o alias precisa continuar aqui.
+      [ -z "${ZSH_VERSION:-}" ] && return 0
+      alias assume="source $_AWS_ASSUME"
+      return 0
+    fi
+  done
+  _AWS_ASSUME="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/assume"
+  [ -z "${ZSH_VERSION:-}" ] || alias assume="source $_AWS_ASSUME"
+  return 1
+}
+_aws_find_assume
 # GRANTED_ALIAS_CONFIGURED evita que o Granted ofereca instalar o alias dele.
 export GRANTED_ALIAS_CONFIGURED=true
 
 # ---------------------------------------------------------------- mensagens
 
 # Mesmo padrao do restante do roleroster: ✔ feito, ✖ erro, › informacao (cinza).
+_aws_need_granted() {
+  [ -r "$_AWS_ASSUME" ] && return 0
+  _aws_find_assume && return 0
+  _role_say fail "O Granted não está instalado. Rode role init para instalar."
+  return 1
+}
+
 _role_say() {
   local kind=$1 text=$2 glyph code
   case ${LC_ALL:-${LC_CTYPE:-${LANG:-}}} in
@@ -234,6 +256,7 @@ _role_sso() {
     return
   fi
   if _aws_is_passthrough "$@"; then
+    _aws_need_granted || return 1
     source "$_AWS_ASSUME" "$@"
     if _aws_has_arg --unset "$@" || _aws_has_arg --un "$@"; then
       rm -f "$_AWS_STATE_FILE" "$_AWS_SESSION_FILE"
@@ -245,6 +268,7 @@ _role_sso() {
   _aws_split_flags "$@"
   set -- "${_AWS_REST[@]}"
   _aws_sync "${_AWS_INACTIVE_FLAG[@]}" || return 130
+  _aws_need_granted || return 1
   _aws_choose "$@" || return
   _aws_assume_and_share new "${_AWS_ARGS[@]}"
 }
@@ -287,12 +311,14 @@ _role_console() {
     return
   fi
   if _aws_is_passthrough "$@"; then
+    _aws_need_granted || return 1
     source "$_AWS_ASSUME" "$@"
     return
   fi
   _aws_split_flags "$@"
   set -- "${_AWS_REST[@]}"
   _aws_sync "${_AWS_INACTIVE_FLAG[@]}" || return 130
+  _aws_need_granted || return 1
   _aws_choose "$@" || return
   _role_open_console "${_AWS_ARGS[@]}"
 }
@@ -302,7 +328,7 @@ role() {
   case ${1:-} in
     sso) shift; _role_sso "$@" ;;
     console) shift; _role_console "$@" ;;
-    assume) shift; source "$_AWS_ASSUME" "$@" ;;
+    assume) shift; _aws_need_granted || return 1; source "$_AWS_ASSUME" "$@" ;;
     *)
       command roleroster "$@"
       rc=$?

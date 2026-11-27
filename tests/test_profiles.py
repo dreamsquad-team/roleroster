@@ -478,5 +478,27 @@ class CredentialsPathTest(unittest.TestCase):
             self.assertEqual((profiles.config_path(args), profiles.credentials_path(args)), (Path("/y/cfg"), Path("/y/cred")))
 
 
+class GrantedOfferTest(unittest.TestCase):
+    """Sem o Granted, sync, squads e setup oferecem instalar antes de seguir; os outros comandos nao."""
+
+    def run_main(self, command, executable):
+        with mock.patch.object(profiles.granted, "executable", return_value=executable), \
+                mock.patch.object(profiles.granted, "ensure_settings", return_value=[]), \
+                mock.patch.object(profiles.granted_install, "offer") as offer, \
+                mock.patch.object(profiles, "cmd_sync", return_value=0, create=True), \
+                mock.patch.object(profiles, "build_parser") as parser:
+            parser.return_value.parse_args.return_value = mock.Mock(command=command, run=mock.Mock(return_value=0))
+            profiles.main([command])
+        return offer
+
+    def test_the_install_is_offered_when_granted_is_missing(self):
+        for command in ("sync", "squads", "setup"):
+            self.run_main(command, None).assert_called_once()
+
+    def test_nothing_is_offered_when_granted_is_there_or_the_command_does_not_need_it(self):
+        self.run_main("sync", "/opt/homebrew/bin/granted").assert_not_called()
+        self.run_main("status", None).assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
