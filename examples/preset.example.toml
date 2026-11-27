@@ -1,0 +1,19 @@
+# Exemplo de preset do roleroster. Todas as chaves sao opcionais.
+# Instalar:  role preset examples/preset.example.toml   (ou: role init --preset <caminho ou URL https>)
+name = "Acme"
+
+[aws]
+sso_start_url = "https://acme.awsapps.com/start"   # portal do IAM Identity Center
+sso_session = "acme-login"
+sso_region = "us-east-1"
+region = "us-east-1"                 # regiao dos perfis (padrao: a do SSO)
+base_profile = "ACME"                # perfil de onde saem os Switch Roles
+base_account_id = "123456789012"     # conta do perfil base
+base_role = "AssumeRole"             # permission set do perfil base
+extra_role = "AdministratorAccess"   # sugerido para perfis SSO extras (role setup --advanced)
+
+[confluence]
+url = "https://acme.atlassian.net"
+root_id = "123456"                   # pasta com uma pasta por squad
+role_section = "Switch Role"         # titulo da secao com o bloco de codigo
+inactive_prefix = "Archived"         # paginas e pastas com este inicio de titulo ficam de fora
