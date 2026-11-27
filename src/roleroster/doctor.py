@@ -12,18 +12,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+from . import awscli_install, browsers, confluence, granted, granted_install, init, onboarding, vault
 from . import awsconfig as sync
-from . import browsers, confluence, granted, granted_install, init, onboarding, vault
 
 TESTED_GRANTED = granted_install.VERSION
 OK, WARN, FAIL = "ok", "warn", "fail"
 
 INSTALL_HINTS = {
     "fzf": {"darwin": "brew install fzf", "linux": "sudo apt install fzf (ou o gerenciador da sua distribuição)"},
-    "aws": {
-        "darwin": "brew install awscli",
-        "linux": "veja https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html",
-    },
 }
 
 
@@ -81,10 +77,11 @@ def check_optional_tools():
     else:
         hint = f"sem ele a busca usa o seletor do Granted. {install_hint('fzf')}"
         results.append(Result(WARN, "fzf não está instalado (opcional)", hint))
-    if shutil.which("aws"):
+    if awscli_install.executable():
         results.append(Result(OK, "AWS CLI"))
     else:
-        results.append(Result(WARN, "AWS CLI não está instalada (opcional)", install_hint("aws")))
+        hint = f"rode role doctor --fix ou role init --aws-cli para instalar. Manual: {awscli_install.manual_hint()}"
+        results.append(Result(WARN, "AWS CLI não está instalada (opcional)", hint, fix=awscli_install.install))
     return results
 
 
@@ -95,14 +92,14 @@ def check_shell():
     shell = init.detect_shell()
     if not shell:
         text = "Não consegui identificar o seu shell (a variável SHELL está vazia)"
-        return [Result(WARN, text, "rode role init --shell zsh ou role init --shell bash")]
+        return [Result(WARN, text, "rode role init --shell zsh, role init --shell bash ou role init --shell fish")]
     if shell not in init.SHELLS:
         return [Result(WARN, f"O shell {shell} ainda não é suportado", f"suportados: {', '.join(init.SHELLS)}")]
     rc = init.rc_path(shell)
     if not (rc.exists() and init.BEGIN in rc.read_text()):
         return [Result(FAIL, f"A integração com o {shell} não está ligada", "role init", fix=lambda: _run_init(shell))]
-    script = Path(init.paths.shell_dir(), init.SCRIPT_NAME)
-    if not script.exists() or script.read_text() != init.packaged_script():
+    script = Path(init.paths.shell_dir(), init.script_name(shell))
+    if not script.exists() or script.read_text() != init.packaged_script(shell):
         return [Result(WARN, "O script de shell está desatualizado", "role init", fix=lambda: _run_init(shell))]
     return [Result(OK, f"Integração com o {shell} ligada ({onboarding.tilde(rc)})")]
 

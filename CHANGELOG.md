@@ -4,6 +4,16 @@ Segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o [Version
 
 ## [Não lançado]
 
+## [0.3.0] - 2026-11-27
+
+### Adicionado
+- Suporte ao fish 3.2 ou superior, no macOS e no Linux. O `role init` detecta o fish (ou use `--shell fish`), grava o bloco em `~/.config/fish/config.fish` e copia o `roleroster.fish`, que faz o mesmo que o `roleroster.sh`: `role sso`, `console` e `assume`, o aviso de Granted ausente e a renovação automática antes de cada prompt. Testado no fish 3.6 e no 4.0.
+- `role init` e `role doctor --fix` oferecem instalar a AWS CLI (opcional). No macOS com Homebrew usam `brew install awscli`. No Linux baixam o instalador oficial da versão 2.42.5, conferem o SHA-256 fixado no pacote e instalam em `~/.local/aws-cli`, sem `sudo`. `--aws-cli` instala sem perguntar, `--no-aws-cli` não oferece, e `--yes` sozinho não a instala.
+
+### Alterado
+- A mensagem "precisa do shell" também cita o `source` do fish.
+- CI: `actions/checkout` e `actions/setup-python` na versão 7, `actions/upload-artifact` na 7 e `actions/download-artifact` na 8. O CI instala o fish para rodar os testes dele.
+
 ## [0.2.1] - 2026-11-27
 
 ### Corrigido
