@@ -481,8 +481,10 @@ class CredentialsPathTest(unittest.TestCase):
 class GrantedOfferTest(unittest.TestCase):
     """Sem o Granted, sync, squads e setup oferecem instalar antes de seguir; os outros comandos nao."""
 
-    def run_main(self, command, executable):
+    def run_main(self, command, executable, interactive=True):
+        console = mock.Mock(interactive=lambda: interactive)
         with mock.patch.object(profiles.granted, "executable", return_value=executable), \
+                mock.patch.object(profiles.ui, "make_console", return_value=console), \
                 mock.patch.object(profiles.granted, "ensure_settings", return_value=[]), \
                 mock.patch.object(profiles.granted_install, "offer") as offer, \
                 mock.patch.object(profiles, "cmd_sync", return_value=0, create=True), \
@@ -498,6 +500,9 @@ class GrantedOfferTest(unittest.TestCase):
     def test_nothing_is_offered_when_granted_is_there_or_the_command_does_not_need_it(self):
         self.run_main("sync", "/opt/homebrew/bin/granted").assert_not_called()
         self.run_main("status", None).assert_not_called()
+
+    def test_without_a_terminal_nothing_is_offered_because_nobody_could_answer(self):
+        self.run_main("sync", None, interactive=False).assert_not_called()
 
 
 if __name__ == "__main__":
