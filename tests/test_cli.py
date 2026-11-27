@@ -88,17 +88,18 @@ class DispatchTest(unittest.TestCase):
 
 class RunGrantedTest(unittest.TestCase):
     def test_executes_the_binary_with_the_arguments(self):
-        with mock.patch.object(cli.shutil, "which", return_value="/bin/granted"), \
+        with mock.patch.object(cli.granted, "executable", return_value="/bin/granted"), \
                 mock.patch.object(cli.os, "execv") as execv:
             cli.run_granted(["doctor"])
         execv.assert_called_once_with("/bin/granted", ["/bin/granted", "doctor"])
 
     def test_explains_how_to_install_when_it_is_missing(self):
-        with mock.patch.object(cli.shutil, "which", return_value=None):
+        with mock.patch.object(cli.granted, "executable", return_value=None):
             err = io.StringIO()
             with redirect_stderr(err):
                 code = cli.run_granted(["doctor"])
         self.assertEqual(code, 127)
+        self.assertIn("role init", err.getvalue())
         self.assertIn("brew install", err.getvalue())
 
 

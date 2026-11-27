@@ -5,10 +5,9 @@ shell, ligada pelo `role init`. Aqui ficam os demais; o que nao for do
 roleroster vai para o Granted, entao `role <comando do granted>` funciona.
 """
 import os
-import shutil
 import sys
 
-from . import __version__, helptext, init, profiles
+from . import __version__, granted, helptext, init, profiles
 
 PROFILE_COMMANDS = ("sync", "squads", "setup", "status", "browser", "notices", "token", "doctor", "preset")
 INTERNAL_COMMANDS = ("session-save", "pick", "prune-exported", "open-console")  # chamados pelo script de shell
@@ -17,11 +16,11 @@ EXIT_USAGE = 2
 GRANTED_INSTALL = "brew tap fwdcloudsec/granted && brew install fwdcloudsec/granted/granted"
 
 def run_granted(args):
-    granted = shutil.which("granted")
-    if not granted:
-        print(f"role: o Granted nao esta instalado. No macOS: {GRANTED_INSTALL}", file=sys.stderr)
+    path = granted.executable()
+    if not path:
+        print(f"role: o Granted nao esta instalado. Rode `role init` para instalar ou use: {GRANTED_INSTALL}", file=sys.stderr)
         return 127
-    os.execv(granted, [granted, *args])
+    os.execv(path, [path, *args])
 
 
 def needs_shell(command):

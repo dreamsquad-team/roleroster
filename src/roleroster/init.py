@@ -13,7 +13,7 @@ import tempfile
 from importlib import resources
 from pathlib import Path
 
-from . import paths, preset, ui
+from . import granted_install, paths, preset, ui
 
 BEGIN = "# >>> roleroster (gerado por `role init`, nao edite) >>>"
 END = "# <<< roleroster <<<"
@@ -129,7 +129,9 @@ def build_parser():
         help="arquivo de configuracao do shell (padrao: ~/.zshrc, ~/.bash_profile no macOS ou ~/.bashrc no Linux)",
     )
     parser.add_argument("-p", "--preset", help="instala antes o preset da empresa (caminho ou URL https)")
-    parser.add_argument("-y", "--yes", action="store_true", help="com --preset, instala sem pedir confirmação")
+    parser.add_argument(
+        "-y", "--yes", action="store_true", help="aceita as confirmações sem perguntar (preset e instalação do Granted)"
+    )
     parser.add_argument("-u", "--uninstall", action="store_true", help="remove o bloco do rc e o script copiado")
     parser.add_argument("-n", "--dry-run", action="store_true", help="mostra o bloco sem gravar nada")
     return parser
@@ -155,6 +157,9 @@ def main(argv):
 
     if args.uninstall:
         return uninstall(args, rc, text)
+
+    if not args.dry_run:
+        granted_install.offer(ui.make_console(), assume_yes=args.yes)
 
     script = paths.shell_dir() / SCRIPT_NAME
     explicit_home = paths.home() if os.environ.get("ROLEROSTER_HOME") else None

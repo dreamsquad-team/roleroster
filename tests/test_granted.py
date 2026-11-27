@@ -115,7 +115,7 @@ class EnsureSettingsTest(unittest.TestCase):
             self.write(FULL)
         with mock.patch.object(granted.subprocess, "run", side_effect=fake_granted) as run:
             changed = granted.ensure_settings()
-        self.assertEqual(run.call_args.args[0][:3], ["granted", "settings", "set"])
+        self.assertEqual(run.call_args.args[0][:4], ["/bin/granted", "settings", "set", "-s"])
         self.assertEqual(changed, ["ExportCredentialSuffix"])
 
     def test_without_granted_installed_does_nothing(self):

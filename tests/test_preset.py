@@ -348,7 +348,11 @@ class NoCompanyDataInThePackageTest(unittest.TestCase):
     def test_the_readme_and_examples_do_not_either(self):
         root = Path(__file__).resolve().parent.parent
         files = [root / "README.md", *(root / "examples").glob("*")] if (root / "examples").exists() else [root / "README.md"]
-        offenders = [f"{p.name}: {w}" for p in files if p.is_file() for w in self.FORBIDDEN if w in p.read_text().lower()]
+        own_repo = "dreamsquad-team/roleroster"  # o endereço do próprio repositório não é dado de empresa
+        offenders = [
+            f"{p.name}: {w}" for p in files if p.is_file()
+            for w in self.FORBIDDEN if w in p.read_text().lower().replace(own_repo, "")
+        ]
         self.assertEqual(offenders, [])
 
 
