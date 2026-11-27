@@ -4,6 +4,13 @@ Segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o [Version
 
 ## [Não lançado]
 
+## [0.2.1] - 2026-11-27
+
+### Corrigido
+- Sem o Granted, `role sso`, `role console` e `role assume` terminavam com `no such file or directory: .../assume`. Agora avisam "O Granted não está instalado. Rode role init para instalar." e `sso` e `console` param logo depois do sync, antes de pedir o perfil.
+- `role sync`, `role squads` e `role setup` (portanto o primeiro `role sso`) oferecem instalar o Granted quando ele falta, e não só o `role init`.
+- Um Granted instalado depois que o terminal abriu é reconhecido no uso seguinte, sem abrir outro terminal.
+
 ## [0.2.0] - 2026-11-27
 
 ### Adicionado

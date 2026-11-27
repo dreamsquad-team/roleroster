@@ -456,6 +456,48 @@ class LocalGrantedTest(ShellTestCase):
         self.assertEqual(done.stdout.strip(), env_path)
 
 
+class MissingGrantedTest(ShellTestCase):
+    """Sem o Granted o role avisa em portugues em vez de mostrar um erro de arquivo."""
+
+    def setUp(self):
+        super().setUp()
+        self.fake_home = Path(self.tmp.name) / "home"
+        self.local = self.fake_home / ".local" / "bin"
+        self.local.mkdir(parents=True)
+
+    def load(self, script):
+        env = {**self.env, "HOME": str(self.fake_home), "PATH": f"{BIN_DIR}:/usr/bin:/bin", "HOMEBREW_PREFIX": str(self.fake_home / "brew")}
+        done = subprocess.run([self.SHELL_NAME, "-c", f"source {SCRIPT}; {script}"], env=env, capture_output=True,
+                              text=True, timeout=60, stdin=subprocess.DEVNULL)
+        return done.stdout, done.stderr
+
+    def test_role_assume_says_granted_is_missing(self):
+        out, err = self.load('role assume algo; echo "rc=$?"')
+        self.assertIn("Granted não está instalado", err)
+        self.assertIn("role init", err)
+        self.assertIn("rc=1", out)
+        self.assertNotIn("No such file", err)
+
+    def test_sso_stops_after_the_sync_and_before_choosing_a_profile(self):
+        out, err = self.load('_aws_sync() { echo sync-ok; return 0; }; _aws_choose() { echo escolheu; }; role sso; echo "rc=$?"')
+        self.assertIn("sync-ok", out)
+        self.assertNotIn("escolheu", out)
+        self.assertIn("rc=1", out)
+        self.assertIn("Granted não está instalado", err)
+
+    def test_console_stops_the_same_way(self):
+        out, err = self.load('_aws_sync() { return 0; }; _aws_choose() { echo escolheu; }; role console; echo "rc=$?"')
+        self.assertNotIn("escolheu", out)
+        self.assertIn("rc=1", out)
+
+    def test_granted_installed_after_the_terminal_opened_is_found_on_the_next_use(self):
+        script = (f'_aws_need_granted 2>/dev/null; echo "antes=$?"; mkdir -p "{self.local}"; '
+                  f'printf "#!/bin/sh\\n" > "{self.local}/assume"; _aws_need_granted; echo "depois=$? $_AWS_ASSUME"')
+        out, _ = self.load(script)
+        self.assertIn("antes=1", out)
+        self.assertIn(f"depois=0 {self.local}/assume", out)
+
+
 def _add_bash_variants():
     """As mesmas classes de teste, rodando no bash (pulam sozinhas se ele nao existir)."""
     for name, cls in list(globals().items()):

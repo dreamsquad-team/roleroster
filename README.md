@@ -36,7 +36,7 @@ Escolha uma forma. Todas instalam o mesmo pacote e os comandos `role` e `roleros
 
 ```sh
 uv tool install roleroster                  # instala
-uv tool install roleroster==0.2.0           # uma versão específica
+uv tool install roleroster==0.2.1           # uma versão específica
 uv tool upgrade roleroster                  # atualiza
 uv tool uninstall roleroster                # remove
 ```
@@ -72,7 +72,7 @@ Confira que `~/.local/bin` está no seu `PATH`. Para atualizar, rode `~/.roleros
 Para testar uma versão que ainda não saiu no PyPI, ou uma branch:
 
 ```sh
-uv tool install git+https://github.com/dreamsquad-team/roleroster@v0.2.0
+uv tool install git+https://github.com/dreamsquad-team/roleroster@v0.2.1
 pipx install git+https://github.com/dreamsquad-team/roleroster@main
 ```
 
@@ -261,6 +261,15 @@ O roleroster não remove o Granted nem a AWS CLI. Para o Granted instalado por e
 `O Confluence recusou o token`. Confira o e-mail da conta Atlassian e se o token foi copiado inteiro. O token novo se gera em https://id.atlassian.com/manage-profile/security/api-tokens, com "Create API token" e sem scopes.
 
 `Granted não está instalado`. Rode `role init` (ou `role doctor --fix`) para instalar, ou veja a seção Instalar o Granted à mão. Se o `role doctor` achar o Granted mas o `granted` não abre no terminal, falta `~/.local/bin` no `PATH`. Acrescente `export PATH="$PATH:$HOME/.local/bin"` ao rc do shell.
+
+O `pipx` ou o `uv` instalou uma versão antiga logo depois de um release. O índice do PyPI e o cache do `pip` levam alguns minutos para mostrar a versão nova. Instale sem cache, ou fixe a versão:
+
+```sh
+pipx install --pip-args="--no-cache-dir" roleroster==0.2.1
+uv tool install --no-cache roleroster==0.2.1
+```
+
+Se já instalou a antiga, use `pipx install --force ...` ou `uv tool install --reinstall ...` com os mesmos argumentos. Confira com `role --version`.
 
 `role: command not found`. Depois de `pipx install` ou `uv tool install`, o `~/.local/bin` precisa estar no `PATH`. Rode `pipx ensurepath` ou `uv tool update-shell` e abra um terminal novo.
 

@@ -33,7 +33,7 @@ import time
 from pathlib import Path
 
 from . import awsconfig as sync
-from . import browsers, confluence, doctor, granted, onboarding, paths, preset, settings, ui
+from . import browsers, confluence, doctor, granted, granted_install, onboarding, paths, preset, settings, ui
 from .confluence import ConfluenceAuthError, ConfluenceError
 
 EXPORT_SUFFIX = "-exported"
@@ -548,6 +548,8 @@ def main(argv=None):
     confluence.load_env_file()  # AWS_CONFIG_FILE etc. escolhidos no onboarding
     args = build_parser().parse_args(argv)
     if args.command in ("sync", "squads", "setup"):
+        if not granted.executable():
+            granted_install.offer(ui.make_console())
         adjusted = granted.ensure_settings()
         if adjusted:
             warn(f"Granted ajustado ({', '.join(adjusted)}).")
