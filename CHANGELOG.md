@@ -4,6 +4,16 @@ Segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o [Version
 
 ## [Não lançado]
 
+## [0.2.0] - 2026-11-27
+
+### Adicionado
+- `role init` e `role doctor --fix` instalam o Granted quando ele falta, sempre com confirmação (`role init --yes` aceita sem perguntar). No macOS com Homebrew usam o `brew`. No Linux, e no macOS sem Homebrew, baixam o binário da release 0.40.0, conferem o SHA-256 fixado no pacote e copiam `granted`, `assume` e `assumego` para `~/.local/bin`, sem `sudo`.
+- O script de shell reconhece o Granted em `~/.local/bin` e acrescenta essa pasta ao `PATH` quando precisa.
+
+### Alterado
+- README reescrito com as formas de instalação (uv, pipx, pip em ambiente virtual, GitHub e código-fonte), instalação do Granted por sistema, atualização, remoção e problemas comuns.
+- O aviso de Granted ausente mostra o comando de instalação do seu sistema e aponta para `role init`.
+
 ## [0.1.0] - 2026-11-27
 
 ### Adicionado

@@ -17,6 +17,10 @@ Requer Python 3.11 ou superior, e zsh e bash instalados para os testes de shell 
 - **Um script de shell só** (`src/roleroster/shell/roleroster.sh`) para zsh e bash 3.2+. Use só o que os dois entendem; o que é específico fica nos blocos por shell. Os testes de shell rodam nos dois.
 - **Mensagens:** português, sem travessão, com `✔` (feito), `!` (aviso), `✖` (erro) e `›` (informação).
 
+## Subir a versão do Granted
+
+O roleroster instala o Granted 0.40.0 com o SHA-256 fixado em `src/roleroster/granted_install.py`. Para testar outra versão, atualize `VERSION` e os 4 valores de `SHA256` com os hashes do `checksums.txt` da release (`granted_<versão>_<sistema>_<arquitetura>.tar.gz`), rode os testes e confirme o download real num contêiner Linux. O `role doctor` compara a versão instalada com essa constante.
+
 ## Fluxo
 
 1. Abra uma issue descrevendo o problema ou a ideia.

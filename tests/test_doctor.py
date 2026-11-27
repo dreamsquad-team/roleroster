@@ -81,11 +81,14 @@ class InstallChecksTest(DoctorTestCase):
     def test_everything_installed_is_ok(self):
         self.assertEqual(set(self.statuses(doctor.check_granted() + doctor.check_optional_tools())), {doctor.OK})
 
-    def test_a_missing_granted_fails_with_the_install_command_for_this_system(self):
-        with mock.patch.object(doctor.shutil, "which", lambda name: None), mock.patch.object(doctor.sys, "platform", "darwin"):
+    def test_a_missing_granted_fails_and_offers_the_automatic_install(self):
+        with mock.patch.object(doctor.shutil, "which", lambda name: None), \
+                mock.patch.object(doctor.granted_install, "method", lambda: "brew"):
             result = doctor.check_granted()[0]
         self.assertEqual(result.status, doctor.FAIL)
         self.assertIn("brew install fwdcloudsec/granted/granted", result.hint)
+        self.assertIn("role init", result.hint)
+        self.assertIs(result.fix, doctor.granted_install.install)
 
     def test_another_granted_version_is_only_a_warning_that_names_the_tested_one(self):
         with mock.patch.object(doctor, "granted_version", lambda: "0.99.0"):

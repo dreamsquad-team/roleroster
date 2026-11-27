@@ -34,17 +34,25 @@ _AWS_RENEW_RETRY_AT=0
 
 # ---------------------------------------------------------------- o que muda de shell para shell
 
+# O role init instala o Granted em ~/.local/bin quando nao ha Homebrew; o assume chama o assumego pelo PATH.
+case ":$PATH:" in
+  *":$HOME/.local/bin:"*) ;;
+  *) [ -x "$HOME/.local/bin/assumego" ] && export PATH="$PATH:$HOME/.local/bin" ;;
+esac
+
 if [ -n "${ZSH_VERSION:-}" ]; then
   zmodload zsh/datetime
   _role_tick() { _ROLE_NOW=$EPOCHSECONDS; }
-  _AWS_ASSUME="${commands[assume]:-${HOMEBREW_PREFIX:-/opt/homebrew}/bin/assume}"
+  _AWS_ASSUME="${commands[assume]:-$HOME/.local/bin/assume}"
+  [ -x "$_AWS_ASSUME" ] || _AWS_ASSUME="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/assume"
   # O script assume so usa `return` (em vez de `exit`, que fecharia o terminal) quando existe
   # um alias com o mesmo nome. Por isso, no zsh, o alias precisa continuar aqui.
   alias assume="source $_AWS_ASSUME"
 else
   _role_tick() { _ROLE_NOW=$(date +%s); }
   _AWS_ASSUME="$(type -P assume 2>/dev/null)"
-  _AWS_ASSUME="${_AWS_ASSUME:-${HOMEBREW_PREFIX:-/opt/homebrew}/bin/assume}"
+  _AWS_ASSUME="${_AWS_ASSUME:-$HOME/.local/bin/assume}"
+  [ -x "$_AWS_ASSUME" ] || _AWS_ASSUME="${HOMEBREW_PREFIX:-/opt/homebrew}/bin/assume"
   # No bash o assume detecta sozinho que foi lido com `source`; uma funcao basta.
   assume() { source "$_AWS_ASSUME" "$@"; }
 fi

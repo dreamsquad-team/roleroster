@@ -58,16 +58,23 @@ def _write_private(path, text):
     os.replace(tmp, path)
 
 
+def executable():
+    """Caminho do granted: no PATH ou em ~/.local/bin (onde o `role init` instala sem Homebrew)."""
+    found = shutil.which("granted")
+    local = Path.home() / ".local" / "bin" / "granted"
+    return found or (str(local) if local.is_file() and os.access(local, os.X_OK) else None)
+
+
 def _create_default_config():
     subprocess.run(
-        ["granted", "settings", "set", "-s", "ExportCredsToAWS", "-v", "true"],
+        [executable() or "granted", "settings", "set", "-s", "ExportCredsToAWS", "-v", "true"],
         capture_output=True, stdin=subprocess.DEVNULL, check=True,
     )
 
 
 def ensure_settings():
     """Devolve as chaves que precisou ajustar. Sem o Granted instalado, nao faz nada."""
-    if not shutil.which("granted"):
+    if not executable():
         return []
     path = config_path()
     if not path.exists():
@@ -95,7 +102,7 @@ def set_browsers(browser_key, browser_path, sso_path):
     CustomBrowserPath). O caminho do SSO e escrito aqui porque o `granted browser set-sso`
     nao grava nada sem as perguntas. Devolve False se o Granted nao esta instalado.
     """
-    if not shutil.which("granted"):
+    if not executable():
         return False
     ensure_settings()  # cria o config se for a primeira vez
     path = config_path()

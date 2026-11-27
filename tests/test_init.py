@@ -65,12 +65,26 @@ class MainTest(unittest.TestCase):
         patcher = mock.patch.dict(os.environ, {"ROLEROSTER_HOME": str(self.root / "home"), "SHELL": "/bin/zsh"})
         patcher.start()
         self.addCleanup(patcher.stop)
+        offer = mock.patch.object(init.granted_install, "offer", return_value=True)
+        self.offer = offer.start()
+        self.addCleanup(offer.stop)
 
     def run_init(self, *args):
         out, err = io.StringIO(), io.StringIO()
         with redirect_stdout(out), redirect_stderr(err):
             code = init.main(["--rc", str(self.rc), *args])
         return code, out.getvalue(), err.getvalue()
+
+    def test_it_offers_to_install_granted_and_passes_yes_along(self):
+        self.run_init()
+        self.assertFalse(self.offer.call_args.kwargs["assume_yes"])
+        self.run_init("--yes")
+        self.assertTrue(self.offer.call_args.kwargs["assume_yes"])
+
+    def test_dry_run_and_uninstall_never_install_anything(self):
+        self.run_init("--dry-run")
+        self.run_init("--uninstall")
+        self.offer.assert_not_called()
 
     def test_installs_the_script_and_the_block(self):
         code, out, _ = self.run_init()

@@ -3,7 +3,7 @@
 Tres grupos: instalacao (Granted, fzf, AWS CLI), configuracao (shell, Granted, navegador,
 arquivos da AWS) e Confluence. Cada verificacao vira ✔ (ok), ! (aviso) ou ✖ (falha), com a
 dica logo abaixo. `--fix` aplica o que tem conserto automatico; `--online` testa o token no Confluence.
-Nao instala programas: mostra o comando do seu sistema.
+So o Granted tem instalacao automatica (`--fix`, ou `role init`); fzf e AWS CLI mostram o comando do seu sistema.
 """
 import os
 import re
@@ -13,16 +13,12 @@ import sys
 from pathlib import Path
 
 from . import awsconfig as sync
-from . import browsers, confluence, granted, init, onboarding, vault
+from . import browsers, confluence, granted, granted_install, init, onboarding, vault
 
-TESTED_GRANTED = "0.40.0"
+TESTED_GRANTED = granted_install.VERSION
 OK, WARN, FAIL = "ok", "warn", "fail"
 
 INSTALL_HINTS = {
-    "granted": {
-        "darwin": "brew tap fwdcloudsec/granted && brew install fwdcloudsec/granted/granted",
-        "linux": "veja https://docs.granted.dev/getting-started (repositório apt ou binário)",
-    },
     "fzf": {"darwin": "brew install fzf", "linux": "sudo apt install fzf (ou o gerenciador da sua distribuição)"},
     "aws": {
         "darwin": "brew install awscli",
@@ -43,7 +39,8 @@ def install_hint(tool):
 
 def granted_version():
     try:
-        done = subprocess.run(["granted", "--version"], capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL)
+        command = [granted.executable() or "granted", "--version"]
+        done = subprocess.run(command, capture_output=True, text=True, timeout=10, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.TimeoutExpired):
         return ""
     match = re.search(r"\d+\.\d+\.\d+", done.stdout + done.stderr)
@@ -59,8 +56,9 @@ def check_python():
 
 
 def check_granted():
-    if not shutil.which("granted"):
-        return [Result(FAIL, "Granted não está instalado", install_hint("granted"))]
+    if not granted.executable():
+        hint = f"rode role doctor --fix ou role init para instalar. Manual: {granted_install.manual_hint()}"
+        return [Result(FAIL, "Granted não está instalado", hint, fix=granted_install.install)]
     version = granted_version()
     results = []
     if version and version != TESTED_GRANTED:
@@ -68,8 +66,11 @@ def check_granted():
         results.append(Result(WARN, f"Granted {version}", hint))
     else:
         results.append(Result(OK, f"Granted {version or '(versão não identificada)'}"))
-    if not (shutil.which("assume") or Path(os.environ.get("HOMEBREW_PREFIX", "/opt/homebrew"), "bin", "assume").exists()):
-        results.append(Result(FAIL, "Script assume do Granted não encontrado", "reinstale o Granted: " + install_hint("granted")))
+    brew_assume = Path(os.environ.get("HOMEBREW_PREFIX", "/opt/homebrew"), "bin", "assume")
+    assume_paths = [brew_assume, granted_install.bin_dir() / "assume"]
+    if not (shutil.which("assume") or any(path.exists() for path in assume_paths)):
+        hint = "reinstale o Granted: " + granted_install.manual_hint()
+        results.append(Result(FAIL, "Script assume do Granted não encontrado", hint))
     return results
 
 
@@ -122,7 +123,7 @@ def _fix_token_location():
 
 
 def check_granted_config():
-    if not shutil.which("granted"):
+    if not granted.executable():
         return []
     path = granted.config_path()
     text = path.read_text() if path.exists() else ""

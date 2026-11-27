@@ -10,6 +10,8 @@ import time
 import unittest
 from pathlib import Path
 
+from roleroster import __version__
+
 SCRIPT = Path(__file__).resolve().parent.parent / "src" / "roleroster" / "shell" / "roleroster.sh"
 BIN_DIR = str(Path(sys.executable).parent)  # onde o venv instala o comando roleroster
 STUB = """echo "assume $*" >> "$STUB_LOG"
@@ -382,7 +384,7 @@ class RoleDispatchTest(ShellTestCase):
 
     def test_other_commands_go_to_the_roleroster_binary(self):
         out, err = self.sh("role --version; role status")
-        self.assertIn("roleroster 0.1.0", out)
+        self.assertIn(f"roleroster {__version__}", out)
         self.assertIn("Nenhuma sessão", err)
         self.assertEqual(self.assume_calls(), [])
 
@@ -414,6 +416,44 @@ class LoadFilesTest(ShellTestCase):
         (self.home / ".env").write_text("# AWS_CONFIG_FILE=/comentado\n")
         out, _ = self.sh('echo "c=[$AWS_CONFIG_FILE]"')
         self.assertIn("c=[]", out)
+
+
+class LocalGrantedTest(ShellTestCase):
+    """Sem Homebrew o role init instala o Granted em ~/.local/bin, que pode nao estar no PATH."""
+
+    def setUp(self):
+        super().setUp()
+        self.fake_home = Path(self.tmp.name) / "home"
+        self.local = self.fake_home / ".local" / "bin"
+        self.local.mkdir(parents=True)
+        for name in ("assume", "assumego", "granted"):
+            (self.local / name).write_text("#!/bin/sh\n")
+            (self.local / name).chmod(0o755)
+
+    def load(self, script):
+        env = {**self.env, "HOME": str(self.fake_home), "PATH": f"{BIN_DIR}:/usr/bin:/bin"}
+        done = subprocess.run([self.SHELL_NAME, "-c", f"source {SCRIPT}; {script}"], env=env, capture_output=True,
+                              text=True, timeout=60, stdin=subprocess.DEVNULL)
+        return done.stdout.strip()
+
+    def test_the_local_folder_is_added_to_the_path_and_assume_is_found_there(self):
+        out = self.load('echo "$_AWS_ASSUME"; echo "$PATH"')
+        assume, path = out.splitlines()
+        self.assertEqual(assume, str(self.local / "assume"))
+        self.assertTrue(path.endswith(f":{self.local}"))
+
+    def test_the_path_is_left_alone_when_granted_is_not_there(self):
+        for name in ("assume", "assumego", "granted"):
+            (self.local / name).unlink()
+        path = self.load('echo "$PATH"')
+        self.assertNotIn(str(self.local), path)
+
+    def test_the_folder_is_not_added_twice(self):
+        env_path = f"{BIN_DIR}:/usr/bin:/bin:{self.local}"
+        env = {**self.env, "HOME": str(self.fake_home), "PATH": env_path}
+        done = subprocess.run([self.SHELL_NAME, "-c", f'source {SCRIPT}; echo "$PATH"'], env=env, capture_output=True,
+                              text=True, timeout=60, stdin=subprocess.DEVNULL)
+        self.assertEqual(done.stdout.strip(), env_path)
 
 
 def _add_bash_variants():

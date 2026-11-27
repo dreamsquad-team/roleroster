@@ -27,6 +27,7 @@ classifiers = [
 ]
 
 [project.urls]
+Documentation = "https://github.com/dreamsquad-team/roleroster#readme"
 Repository = "https://github.com/dreamsquad-team/roleroster"
 Issues = "https://github.com/dreamsquad-team/roleroster/issues"
 Changelog = "https://github.com/dreamsquad-team/roleroster/blob/main/CHANGELOG.md"
