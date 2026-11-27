@@ -68,6 +68,9 @@ class MainTest(unittest.TestCase):
         offer = mock.patch.object(init.granted_install, "offer", return_value=True)
         self.offer = offer.start()
         self.addCleanup(offer.stop)
+        aws_offer = mock.patch.object(init.awscli_install, "offer", return_value=True)
+        self.aws_offer = aws_offer.start()
+        self.addCleanup(aws_offer.stop)
 
     def run_init(self, *args):
         out, err = io.StringIO(), io.StringIO()
@@ -81,10 +84,21 @@ class MainTest(unittest.TestCase):
         self.run_init("--yes")
         self.assertTrue(self.offer.call_args.kwargs["assume_yes"])
 
+    def test_the_aws_cli_is_offered_but_yes_alone_never_installs_it(self):
+        self.run_init("--yes")
+        self.assertIsNone(self.aws_offer.call_args.kwargs["choice"])
+
+    def test_the_aws_cli_flags_decide_for_the_user(self):
+        self.run_init("--aws-cli")
+        self.assertIs(self.aws_offer.call_args.kwargs["choice"], True)
+        self.run_init("--no-aws-cli")
+        self.assertIs(self.aws_offer.call_args.kwargs["choice"], False)
+
     def test_dry_run_and_uninstall_never_install_anything(self):
         self.run_init("--dry-run")
         self.run_init("--uninstall")
         self.offer.assert_not_called()
+        self.aws_offer.assert_not_called()
 
     def test_installs_the_script_and_the_block(self):
         code, out, _ = self.run_init()
@@ -191,12 +205,88 @@ class MainTest(unittest.TestCase):
         self.assertFalse((paths.shell_dir() / init.SCRIPT_NAME).exists())
 
     def test_unsupported_shell_is_refused_with_the_list_of_supported_ones(self):
-        with mock.patch.dict(os.environ, {"SHELL": "/usr/bin/fish"}):
+        with mock.patch.dict(os.environ, {"SHELL": "/usr/bin/nushell"}):
             code, _, err = self.run_init()
         self.assertEqual(code, 2)
         self.assertIn("zsh", err)
         self.assertIn("bash", err)
         self.assertEqual(self.rc.read_text(), RC)
+
+
+class FishTest(unittest.TestCase):
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.root = Path(tmp.name)
+        self.rc = self.root / "fish" / "config.fish"
+        patcher = mock.patch.dict(os.environ, {"ROLEROSTER_HOME": str(self.root / "home"), "SHELL": "/usr/bin/fish"})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        for module, name in ((init.granted_install, "offer"), (init.awscli_install, "offer")):
+            offer = mock.patch.object(module, name, return_value=True)
+            offer.start()
+            self.addCleanup(offer.stop)
+
+    def run_init(self, *args):
+        out, err = io.StringIO(), io.StringIO()
+        with redirect_stdout(out), redirect_stderr(err):
+            code = init.main(["--rc", str(self.rc), *args])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_the_rc_is_the_fish_config_and_follows_xdg_config_home(self):
+        with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": "/tmp/xdg"}):
+            self.assertEqual(init.rc_path("fish"), Path("/tmp/xdg/fish/config.fish"))
+        env = {k: v for k, v in os.environ.items() if k != "XDG_CONFIG_HOME"}
+        with mock.patch.dict(os.environ, env, clear=True), mock.patch.object(Path, "home", return_value=Path("/h")):
+            self.assertEqual(init.rc_path("fish"), Path("/h/.config/fish/config.fish"))
+
+    def test_the_block_uses_fish_syntax(self):
+        block = init.render_block("/x/roleroster.fish", home="/h", shell="fish")
+        self.assertIn('set -gx ROLEROSTER_HOME "/h"', block)
+        self.assertIn('source "/x/roleroster.fish"', block)
+        self.assertNotIn("export", block)
+        self.assertIn("export", init.render_block("/x/r.sh", home="/h"))
+
+    def test_the_packaged_scripts_differ_by_shell(self):
+        self.assertIn("function role", init.packaged_script("fish"))
+        self.assertNotIn("function role", init.packaged_script("zsh"))
+        self.assertEqual(init.packaged_script("bash"), init.packaged_script("zsh"))
+
+    def test_init_installs_the_fish_script_and_never_the_sh_one(self):
+        code, _, _ = self.run_init()
+        self.assertEqual(code, 0)
+        folder = paths.shell_dir()
+        self.assertTrue((folder / init.FISH_SCRIPT_NAME).exists())
+        self.assertFalse((folder / init.SCRIPT_NAME).exists())
+        self.assertIn(f'source "{folder / init.FISH_SCRIPT_NAME}"', self.rc.read_text())
+        self.assertIn("set -gx ROLEROSTER_HOME", self.rc.read_text())
+
+    def test_init_twice_changes_nothing(self):
+        self.run_init()
+        before = self.rc.read_text()
+        _, out, _ = self.run_init()
+        self.assertEqual(self.rc.read_text(), before)
+        self.assertIn("em dia", out)
+
+    def test_uninstall_removes_only_the_fish_script_and_keeps_the_sh_one(self):
+        self.run_init()
+        (paths.shell_dir() / init.SCRIPT_NAME).write_text("# do zsh\n")
+        self.run_init("--uninstall")
+        self.assertFalse((paths.shell_dir() / init.FISH_SCRIPT_NAME).exists())
+        self.assertTrue((paths.shell_dir() / init.SCRIPT_NAME).exists())
+        self.assertNotIn(init.BEGIN, self.rc.read_text())
+
+    def test_a_fish_script_that_is_out_of_date_is_refreshed_after_an_upgrade(self):
+        self.run_init()
+        script = paths.shell_dir() / init.FISH_SCRIPT_NAME
+        script.write_text("# velho\n")
+        self.assertTrue(init.refresh_script())
+        self.assertEqual(script.read_text(), init.packaged_script("fish"))
+        self.assertFalse(init.refresh_script())
+
+    def test_a_machine_without_fish_gets_nothing_from_the_refresh(self):
+        self.assertFalse(init.refresh_script())
+        self.assertFalse((paths.shell_dir() / init.FISH_SCRIPT_NAME).exists())
 
 
 class PathsTest(unittest.TestCase):

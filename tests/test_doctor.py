@@ -192,11 +192,19 @@ class ConfigChecksTest(DoctorTestCase):
             init.install_script()
             self.assertEqual(doctor.check_shell()[0].status, doctor.OK)
 
+    def test_fish_is_supported_and_checked_against_its_own_script(self):
+        rc = self.root / "config.fish"
+        rc.write_text(init.render_block("x", shell="fish"))
+        with mock.patch.object(init, "detect_shell", lambda: "fish"), mock.patch.object(init, "rc_path", lambda shell: rc):
+            self.assertEqual(doctor.check_shell()[0].status, doctor.WARN)  # o script copiado nao existe ainda
+            init.install_script("fish")
+            self.assertEqual(doctor.check_shell()[0].status, doctor.OK)
+
     def test_an_unsupported_shell_is_a_warning(self):
-        with mock.patch.object(init, "detect_shell", lambda: "fish"):
+        with mock.patch.object(init, "detect_shell", lambda: "nushell"):
             result = doctor.check_shell()[0]
         self.assertEqual(result.status, doctor.WARN)
-        self.assertIn("fish", result.text)
+        self.assertIn("nushell", result.text)
 
     def test_an_empty_shell_variable_gets_its_own_message_and_the_way_out(self):
         with mock.patch.object(init, "detect_shell", lambda: ""):

@@ -27,7 +27,8 @@ def needs_shell(command):
     print(
         f"role {command} precisa do shell do roleroster (ele altera o terminal atual).\n"
         "Se ainda não rodou, use `role init`. Depois abra um terminal novo (ou rode `source ~/.zshrc`,\n"
-        f"`source ~/.bash_profile` no bash do macOS) e use `role {command}` de novo.",
+        "`source ~/.bash_profile` no bash do macOS, `source ~/.config/fish/config.fish` no fish)\n"
+        f"e use `role {command}` de novo.",
         file=sys.stderr,
     )
     return EXIT_USAGE

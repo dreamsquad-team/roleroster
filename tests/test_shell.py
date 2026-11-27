@@ -13,6 +13,7 @@ from pathlib import Path
 from roleroster import __version__
 
 SCRIPT = Path(__file__).resolve().parent.parent / "src" / "roleroster" / "shell" / "roleroster.sh"
+FISH_SCRIPT = SCRIPT.with_name("roleroster.fish")
 BIN_DIR = str(Path(sys.executable).parent)  # onde o venv instala o comando roleroster
 STUB = """echo "assume $*" >> "$STUB_LOG"
 if [ -n "$STUB_FAIL" ]; then return 1; fi
@@ -22,18 +23,48 @@ export AWS_CREDENTIAL_EXPIRATION="$STUB_EXPIRATION"
 """
 
 
+FISH_STUB = """echo "assume $argv" >> $STUB_LOG
+if test -n "$STUB_FAIL"
+    false
+else if contains -- -u $argv
+    if test -n "$STUB_URL"
+        echo $STUB_URL
+    else
+        echo 'https://signin.example/console?token=abc'
+    end
+else
+    set -gx AWS_PROFILE $argv[1]
+    set -gx AWS_CREDENTIAL_EXPIRATION $STUB_EXPIRATION
+end
+"""  # sem `return`: num source dentro de uma funcao o fish sai da funcao, e o assume.fish de verdade usa `exit`
+
+
 def iso(seconds_from_now):
     moment = datetime.datetime.fromtimestamp(time.time() + seconds_from_now, datetime.UTC)
     return moment.isoformat()
 
 
 class ShellTestCase(unittest.TestCase):
-    SHELL_NAME = "zsh"  # as subclasses Bash... rodam os mesmos testes no bash
+    SHELL_NAME = "zsh"  # as subclasses Bash... e Fish... rodam os mesmos testes no bash e no fish
 
     @classmethod
     def setUpClass(cls):
         if not shutil.which(cls.SHELL_NAME):
             raise unittest.SkipTest(f"{cls.SHELL_NAME} nao instalado")
+
+    @property
+    def is_fish(self):
+        return self.SHELL_NAME == "fish"
+
+    def run_shell(self, script, env, load_script=True):
+        """Roda `script` num shell novo. Com load_script, carrega antes o script do roleroster do shell."""
+        if self.is_fish:
+            command = f"source {FISH_SCRIPT}; {script}" if load_script else script
+            argv = ["fish", "--no-config", "-c", command]
+        else:
+            command = f"source {SCRIPT}; {script}" if load_script else script
+            argv = [self.SHELL_NAME, "-c", command]
+        return subprocess.run(argv, env=env, capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -43,8 +74,8 @@ class ShellTestCase(unittest.TestCase):
         self.home.mkdir()
         self.state = self.home / "state"
         self.state.mkdir()
-        self.stub = root / "assume_stub.sh"
-        self.stub.write_text(STUB)
+        self.stub = root / ("assume_stub.fish" if self.is_fish else "assume_stub.sh")
+        self.stub.write_text(FISH_STUB if self.is_fish else STUB)
         self.log = root / "stub.log"
         self.config = root / "config"
         self.config.write_text("[profile perfil]\nregion = us-east-1\n")
@@ -60,8 +91,8 @@ class ShellTestCase(unittest.TestCase):
 
     def sh(self, script, **extra_env):
         env = {**self.env, **extra_env}
-        command = f"source {SCRIPT}; _AWS_ASSUME={self.stub}; {script}"
-        done = subprocess.run([self.SHELL_NAME, "-c", command], env=env, capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+        assign = f"set -g _AWS_ASSUME {self.stub}" if self.is_fish else f"_AWS_ASSUME={self.stub}"
+        done = self.run_shell(f"{assign}; {script}", env)
         return done.stdout, done.stderr
 
     def write_session(self, expires_in, renew_until_in=3 * 3600, renew="1", profile="g4"):
@@ -240,7 +271,10 @@ class PortabilityTest(ShellTestCase):
         self.assertEqual((out.strip(), err.strip()), ("definida", ""))
 
     def test_the_roleroster_hooks_are_registered_exactly_once_even_if_sourced_twice(self):
-        if self.SHELL_NAME == "bash":
+        if self.is_fish:
+            out, _ = self.sh(f"source {FISH_SCRIPT}; functions --handlers")
+            self.assertEqual(out.count("_role_prompt"), 1)
+        elif self.SHELL_NAME == "bash":
             out, _ = self.sh(f'source {SCRIPT}; echo "$PROMPT_COMMAND"')
             self.assertEqual(out.count("_role_prompt"), 1)
         else:
@@ -356,7 +390,8 @@ class ConsoleModesTest(ShellTestCase):
 
     def test_guest_never_touches_the_current_terminal_credentials(self):
         self.prefs(ROLEROSTER_CONSOLE_MODE="guest", ROLEROSTER_BROWSER="chrome", ROLEROSTER_BROWSER_PATH=self.browser)
-        out, _ = self.sh('AWS_PROFILE=em-uso; role console perfil; echo "PROFILE=$AWS_PROFILE"')
+        setup = "set -gx AWS_PROFILE em-uso" if self.is_fish else "AWS_PROFILE=em-uso"
+        out, _ = self.sh(f'{setup}; role console perfil; echo "PROFILE=$AWS_PROFILE"')
         self.assertIn("PROFILE=em-uso", out)
 
     def test_guest_without_a_url_from_granted_explains_and_opens_nothing(self):
@@ -403,7 +438,9 @@ class LoadFilesTest(ShellTestCase):
         )
 
     def test_exports_only_the_aws_files_expanding_the_tilde_and_ignoring_spaces_and_quotes(self):
-        out, _ = self.sh('echo "c=$AWS_CONFIG_FILE"; echo "k=$AWS_SHARED_CREDENTIALS_FILE"; echo "b=${CONFLUENCE_BASE_URL:-nada}"')
+        other = ('if set -q CONFLUENCE_BASE_URL; echo "b=$CONFLUENCE_BASE_URL"; else; echo b=nada; end' if self.is_fish
+                 else 'echo "b=${CONFLUENCE_BASE_URL:-nada}"')
+        out, _ = self.sh(f'echo "c=$AWS_CONFIG_FILE"; echo "k=$AWS_SHARED_CREDENTIALS_FILE"; {other}')
         self.assertIn(f"c={Path.home()}/.aws/config_teste", out)
         self.assertIn("k=/tmp/cred_x", out)
         self.assertIn("b=nada", out)
@@ -426,34 +463,30 @@ class LocalGrantedTest(ShellTestCase):
         self.fake_home = Path(self.tmp.name) / "home"
         self.local = self.fake_home / ".local" / "bin"
         self.local.mkdir(parents=True)
-        for name in ("assume", "assumego", "granted"):
+        for name in ("assume", "assume.fish", "assumego", "granted"):
             (self.local / name).write_text("#!/bin/sh\n")
             (self.local / name).chmod(0o755)
+        self.assume_name = "assume.fish" if self.is_fish else "assume"
+        self.show_path = 'string join : $PATH' if self.is_fish else 'echo "$PATH"'
 
-    def load(self, script):
-        env = {**self.env, "HOME": str(self.fake_home), "PATH": f"{BIN_DIR}:/usr/bin:/bin"}
-        done = subprocess.run([self.SHELL_NAME, "-c", f"source {SCRIPT}; {script}"], env=env, capture_output=True,
-                              text=True, timeout=60, stdin=subprocess.DEVNULL)
-        return done.stdout.strip()
+    def load(self, script, path=None):
+        env = {**self.env, "HOME": str(self.fake_home), "PATH": path or f"{BIN_DIR}:/usr/bin:/bin"}
+        return self.run_shell(script, env).stdout.strip()
 
     def test_the_local_folder_is_added_to_the_path_and_assume_is_found_there(self):
-        out = self.load('echo "$_AWS_ASSUME"; echo "$PATH"')
+        out = self.load(f'echo "$_AWS_ASSUME"; {self.show_path}')
         assume, path = out.splitlines()
-        self.assertEqual(assume, str(self.local / "assume"))
+        self.assertEqual(assume, str(self.local / self.assume_name))
         self.assertTrue(path.endswith(f":{self.local}"))
 
     def test_the_path_is_left_alone_when_granted_is_not_there(self):
-        for name in ("assume", "assumego", "granted"):
+        for name in ("assume", "assume.fish", "assumego", "granted"):
             (self.local / name).unlink()
-        path = self.load('echo "$PATH"')
-        self.assertNotIn(str(self.local), path)
+        self.assertNotIn(str(self.local), self.load(self.show_path))
 
     def test_the_folder_is_not_added_twice(self):
         env_path = f"{BIN_DIR}:/usr/bin:/bin:{self.local}"
-        env = {**self.env, "HOME": str(self.fake_home), "PATH": env_path}
-        done = subprocess.run([self.SHELL_NAME, "-c", f'source {SCRIPT}; echo "$PATH"'], env=env, capture_output=True,
-                              text=True, timeout=60, stdin=subprocess.DEVNULL)
-        self.assertEqual(done.stdout.strip(), env_path)
+        self.assertEqual(self.load(self.show_path, path=env_path), env_path)
 
 
 class MissingGrantedTest(ShellTestCase):
@@ -467,45 +500,56 @@ class MissingGrantedTest(ShellTestCase):
 
     def load(self, script):
         env = {**self.env, "HOME": str(self.fake_home), "PATH": f"{BIN_DIR}:/usr/bin:/bin", "HOMEBREW_PREFIX": str(self.fake_home / "brew")}
-        done = subprocess.run([self.SHELL_NAME, "-c", f"source {SCRIPT}; {script}"], env=env, capture_output=True,
-                              text=True, timeout=60, stdin=subprocess.DEVNULL)
+        done = self.run_shell(script, env)
         return done.stdout, done.stderr
 
+    @property
+    def rc(self):
+        return "$status" if self.is_fish else "$?"
+
+    def stubs(self, sync, choose):
+        """Troca _aws_sync e _aws_choose por funcoes de mentira, na sintaxe do shell."""
+        if self.is_fish:
+            return f"function _aws_sync; {sync}; end; function _aws_choose; {choose}; end"
+        return f"_aws_sync() {{ {sync}; }}; _aws_choose() {{ {choose}; }}"
+
     def test_role_assume_says_granted_is_missing(self):
-        out, err = self.load('role assume algo; echo "rc=$?"')
+        out, err = self.load(f'role assume algo; echo "rc={self.rc}"')
         self.assertIn("Granted não está instalado", err)
         self.assertIn("role init", err)
         self.assertIn("rc=1", out)
         self.assertNotIn("No such file", err)
 
     def test_sso_stops_after_the_sync_and_before_choosing_a_profile(self):
-        out, err = self.load('_aws_sync() { echo sync-ok; return 0; }; _aws_choose() { echo escolheu; }; role sso; echo "rc=$?"')
+        out, err = self.load(f'{self.stubs("echo sync-ok; return 0", "echo escolheu")}; role sso; echo "rc={self.rc}"')
         self.assertIn("sync-ok", out)
         self.assertNotIn("escolheu", out)
         self.assertIn("rc=1", out)
         self.assertIn("Granted não está instalado", err)
 
     def test_console_stops_the_same_way(self):
-        out, err = self.load('_aws_sync() { return 0; }; _aws_choose() { echo escolheu; }; role console; echo "rc=$?"')
+        out, err = self.load(f'{self.stubs("return 0", "echo escolheu")}; role console; echo "rc={self.rc}"')
         self.assertNotIn("escolheu", out)
         self.assertIn("rc=1", out)
 
     def test_granted_installed_after_the_terminal_opened_is_found_on_the_next_use(self):
-        script = (f'_aws_need_granted 2>/dev/null; echo "antes=$?"; mkdir -p "{self.local}"; '
-                  f'printf "#!/bin/sh\\n" > "{self.local}/assume"; _aws_need_granted; echo "depois=$? $_AWS_ASSUME"')
+        name = "assume.fish" if self.is_fish else "assume"
+        script = (f'_aws_need_granted 2>/dev/null; echo "antes={self.rc}"; mkdir -p "{self.local}"; '
+                  f'printf "#!/bin/sh\\n" > "{self.local}/{name}"; _aws_need_granted; echo "depois={self.rc} $_AWS_ASSUME"')
         out, _ = self.load(script)
         self.assertIn("antes=1", out)
-        self.assertIn(f"depois=0 {self.local}/assume", out)
+        self.assertIn(f"depois=0 {self.local}/{name}", out)
 
 
-def _add_bash_variants():
-    """As mesmas classes de teste, rodando no bash (pulam sozinhas se ele nao existir)."""
+def _add_shell_variants():
+    """As mesmas classes de teste, rodando no bash e no fish (pulam sozinhas se o shell nao existir)."""
     for name, cls in list(globals().items()):
         if isinstance(cls, type) and issubclass(cls, ShellTestCase) and cls is not ShellTestCase:
-            globals()["Bash" + name] = type("Bash" + name, (cls,), {"SHELL_NAME": "bash"})
+            for prefix, shell in (("Bash", "bash"), ("Fish", "fish")):
+                globals()[prefix + name] = type(prefix + name, (cls,), {"SHELL_NAME": shell})
 
 
-_add_bash_variants()
+_add_shell_variants()
 
 
 if __name__ == "__main__":

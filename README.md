@@ -2,7 +2,7 @@
 
 Mantém os perfis de Switch Role do `~/.aws/config` sincronizados com as páginas do Confluence da empresa e usa o [Granted](https://docs.granted.dev) para o acesso. Em vez de copiar à mão o perfil de cada cliente, você roda `role sso`, escolhe a conta na busca e já está logado, com a credencial renovando sozinha por até 12 h.
 
-Versão 0.2 (alfa). Funciona em macOS e Linux, com zsh e bash 3.2 ou superior. Fish e Windows ainda não.
+Versão 0.3 (alfa). Funciona em macOS e Linux, com zsh, bash 3.2 ou superior e fish 3.2 ou superior. O Windows ainda não.
 
 ## Em 30 segundos
 
@@ -19,12 +19,12 @@ O resto deste documento traz cada passo com as variações por sistema e por for
 
 | Item | Obrigatório | Observação |
 |---|---|---|
-| macOS ou Linux (x86_64 ou arm64) | sim | Windows e fish ainda não |
+| macOS ou Linux (x86_64 ou arm64) | sim | com zsh, bash ou fish. O Windows ainda não |
 | Python 3.11 ou superior | sim | o `uv` baixa o Python sozinho se faltar |
 | Granted 0.40 | sim | o `role init` instala, com a sua confirmação. Veja a seção Instalar o Granted |
 | Token de API do Atlassian | sim | o roleroster abre a página para gerar e guarda o token no cofre do sistema |
 | fzf | não | melhora a busca de perfis. Sem ele, a busca usa o seletor do Granted |
-| AWS CLI | não | o roleroster não a usa. Você a usa depois do login, com os perfis que ele criou |
+| AWS CLI | não | o roleroster não a usa. Você a usa depois do login, com os perfis que ele criou. O `role init` oferece instalar |
 
 O comando `role doctor` confere tudo isso e mostra o que falta.
 
@@ -36,7 +36,7 @@ Escolha uma forma. Todas instalam o mesmo pacote e os comandos `role` e `roleros
 
 ```sh
 uv tool install roleroster                  # instala
-uv tool install roleroster==0.2.1           # uma versão específica
+uv tool install roleroster==0.3.0           # uma versão específica
 uv tool upgrade roleroster                  # atualiza
 uv tool uninstall roleroster                # remove
 ```
@@ -72,7 +72,7 @@ Confira que `~/.local/bin` está no seu `PATH`. Para atualizar, rode `~/.roleros
 Para testar uma versão que ainda não saiu no PyPI, ou uma branch:
 
 ```sh
-uv tool install git+https://github.com/dreamsquad-team/roleroster@v0.2.1
+uv tool install git+https://github.com/dreamsquad-team/roleroster@v0.3.0
 pipx install git+https://github.com/dreamsquad-team/roleroster@main
 ```
 
@@ -133,23 +133,42 @@ Se preferir pacote do sistema (`.deb`, `.rpm`), veja as instruções do [Granted
 
 Para conferir: `granted --version` deve mostrar a versão. O roleroster foi testado com a 0.40.0. Em outra versão o `role doctor` mostra um aviso, e a versão é o primeiro suspeito se algo estranhar.
 
-## Opcionais
+## Instalar a AWS CLI (opcional)
 
-fzf, para a busca de perfis:
+O roleroster não usa a AWS CLI. Ela serve para você trabalhar com os perfis depois do login. O `role init` pergunta se quer instalar, e a resposta padrão é sim.
 
 ```sh
-brew install fzf             # macOS
-sudo apt install fzf         # Debian e Ubuntu
-sudo dnf install fzf         # Fedora
+role init                 # pergunta "Instalar a AWS CLI agora?"
+role init --aws-cli       # instala sem perguntar
+role init --no-aws-cli    # não oferece
+role doctor --fix         # também instala, se ela estiver faltando
 ```
 
-AWS CLI, para usar os perfis depois do login:
+O `--yes` sozinho não instala a AWS CLI, porque ela é opcional. Sem terminal para perguntar, o roleroster só avisa que o `--aws-cli` existe.
+
+| Sistema | O que ele faz |
+|---|---|
+| macOS com Homebrew | `brew install awscli` |
+| Linux (x86_64 ou arm64) | baixa o instalador oficial da versão 2.42.5, confere o SHA-256 fixado no pacote e roda o `aws/install` dele em `~/.local/aws-cli`, com o link em `~/.local/bin`, sem `sudo` |
+| macOS sem Homebrew | mostra o [guia da AWS](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) |
+
+Instalação manual:
 
 ```sh
 brew install awscli          # macOS
 ```
 
 No Linux, siga o [guia da AWS](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html).
+
+## Instalar o fzf (opcional)
+
+O fzf melhora a busca de perfis. Sem ele, a busca usa o seletor do Granted.
+
+```sh
+brew install fzf             # macOS
+sudo apt install fzf         # Debian e Ubuntu
+sudo dnf install fzf         # Fedora
+```
 
 ## Ligar o shell e configurar
 
@@ -163,8 +182,9 @@ O `role init` grava um bloco no arquivo de configuração do seu shell, depois d
 |---|---|---|
 | zsh | `~/.zshrc` | `~/.zshrc` |
 | bash | `~/.bash_profile` | `~/.bashrc` |
+| fish | `~/.config/fish/config.fish` | `~/.config/fish/config.fish` |
 
-Use `--shell bash` ou `--shell zsh` para escolher, `--rc <arquivo>` para outro arquivo e `--dry-run` para só ver o bloco. Abra um terminal novo (ou rode `source ~/.zshrc`) e execute:
+Use `--shell bash`, `--shell zsh` ou `--shell fish` para escolher, `--rc <arquivo>` para outro arquivo e `--dry-run` para só ver o bloco. O fish usa um script próprio, `roleroster.fish`, que faz o mesmo que o `roleroster.sh` do zsh e do bash. Abra um terminal novo (ou rode `source ~/.zshrc`, `source ~/.config/fish/config.fish` no fish) e execute:
 
 ```sh
 role sso
@@ -252,11 +272,11 @@ Atualize o pacote pelo mesmo gerenciador que instalou (`uv tool upgrade rolerost
 
    Linux: `secret-tool clear service roleroster username confluence-token`
 
-O roleroster não remove o Granted nem a AWS CLI. Para o Granted instalado por ele em `~/.local/bin`, apague `granted`, `assume`, `assume.fish` e `assumego` dessa pasta. Com Homebrew, `brew uninstall granted`.
+O roleroster não remove o Granted nem a AWS CLI. Para o Granted instalado por ele em `~/.local/bin`, apague `granted`, `assume`, `assume.fish` e `assumego` dessa pasta. Para a AWS CLI instalada por ele no Linux, apague `~/.local/aws-cli` e os links `aws` e `aws_completer` em `~/.local/bin`. Com Homebrew, `brew uninstall granted awscli`.
 
 ## Problemas comuns
 
-`role sso precisa do shell do roleroster`. O terminal onde você rodou ainda não carregou o bloco do `role init`. Abra um terminal novo ou rode `source ~/.zshrc` (`source ~/.bash_profile` no bash do macOS). Se você usa um terminal que restaura a sessão, abra uma aba criada depois do `role init`.
+`role sso precisa do shell do roleroster`. O terminal onde você rodou ainda não carregou o bloco do `role init`. Abra um terminal novo ou rode `source ~/.zshrc` (`source ~/.bash_profile` no bash do macOS, `source ~/.config/fish/config.fish` no fish). Se você usa um terminal que restaura a sessão, abra uma aba criada depois do `role init`.
 
 `O Confluence recusou o token`. Confira o e-mail da conta Atlassian e se o token foi copiado inteiro. O token novo se gera em https://id.atlassian.com/manage-profile/security/api-tokens, com "Create API token" e sem scopes.
 
@@ -265,8 +285,8 @@ O roleroster não remove o Granted nem a AWS CLI. Para o Granted instalado por e
 O `pipx` ou o `uv` instalou uma versão antiga logo depois de um release. O índice do PyPI e o cache do `pip` levam alguns minutos para mostrar a versão nova. Instale sem cache, ou fixe a versão:
 
 ```sh
-pipx install --pip-args="--no-cache-dir" roleroster==0.2.1
-uv tool install --no-cache roleroster==0.2.1
+pipx install --pip-args="--no-cache-dir" roleroster==0.3.0
+uv tool install --no-cache roleroster==0.3.0
 ```
 
 Se já instalou a antiga, use `pipx install --force ...` ou `uv tool install --reinstall ...` com os mesmos argumentos. Confira com `role --version`.
@@ -277,7 +297,7 @@ Qualquer outro caso: rode `role doctor`. Ele confere a instalação, a configura
 
 ## Segurança
 
-O roleroster não envia dados para lugar nenhum além do seu Confluence e dos downloads do Granted no GitHub. O token fica no cofre do sistema ou no `.env` com permissão 600. A instalação do Granted só acontece com a sua confirmação, e o arquivo baixado é conferido pelo SHA-256 fixado no pacote. Um preset é mostrado por inteiro antes de entrar. Para relatar uma vulnerabilidade, use o [relato privado do GitHub](https://github.com/dreamsquad-team/roleroster/security/advisories/new).
+O roleroster não envia dados para lugar nenhum além do seu Confluence e dos downloads do Granted (GitHub) e da AWS CLI (awscli.amazonaws.com). O token fica no cofre do sistema ou no `.env` com permissão 600. A instalação do Granted e da AWS CLI só acontece com a sua confirmação, e cada arquivo baixado é conferido pelo SHA-256 fixado no pacote. Um preset é mostrado por inteiro antes de entrar. Para relatar uma vulnerabilidade, use o [relato privado do GitHub](https://github.com/dreamsquad-team/roleroster/security/advisories/new).
 
 ## Desenvolvimento
 
