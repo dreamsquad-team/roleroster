@@ -60,10 +60,10 @@ class ShellTestCase(unittest.TestCase):
         """Roda `script` num shell novo. Com load_script, carrega antes o script do roleroster do shell."""
         if self.is_fish:
             command = f"source {FISH_SCRIPT}; {script}" if load_script else script
-            argv = ["fish", "--no-config", "-c", command]
+            argv = [shutil.which("fish"), "--no-config", "-c", command]
         else:
             command = f"source {SCRIPT}; {script}" if load_script else script
-            argv = [self.SHELL_NAME, "-c", command]
+            argv = [shutil.which(self.SHELL_NAME), "-c", command]  # caminho inteiro: alguns testes trocam o PATH
         return subprocess.run(argv, env=env, capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
 
     def setUp(self):
