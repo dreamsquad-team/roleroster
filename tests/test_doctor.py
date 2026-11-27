@@ -140,8 +140,10 @@ class ConfigChecksTest(DoctorTestCase):
         self.assertEqual(doctor.check_aws_files()[0].status, doctor.WARN)
         self.config.unlink()
         self.assertEqual(doctor.check_aws_files()[0].status, doctor.FAIL)
+
+    def test_files_not_chosen_yet_are_a_warning_because_onboarding_resolves_them(self):
         del os.environ["AWS_CONFIG_FILE"]
-        self.assertEqual(doctor.check_aws_files()[0].status, doctor.FAIL)
+        self.assertEqual(doctor.check_aws_files()[0].status, doctor.WARN)
 
     def test_a_loose_env_permission_is_fixed_by_the_fix(self):
         self.env_path.chmod(0o644)
@@ -216,10 +218,10 @@ class ConfluenceChecksTest(DoctorTestCase):
         result = [r for r in doctor.check_confluence(False) if r.status == doctor.FAIL][0]
         self.assertEqual(result.hint, "role token")
 
-    def test_missing_url_or_email_fails_early(self):
+    def test_missing_url_or_email_is_a_warning_because_onboarding_resolves_it(self):
         del os.environ["CONFLUENCE_EMAIL"]
         results = doctor.check_confluence(False)
-        self.assertEqual(self.statuses(results), [doctor.FAIL])
+        self.assertEqual(self.statuses(results), [doctor.WARN])
 
     def test_no_squads_is_a_warning(self):
         del os.environ["CONFLUENCE_SQUAD_IDS"]
@@ -253,7 +255,7 @@ class RunTest(DoctorTestCase):
         code, console = self.run_doctor()
         self.assertEqual(code, 0)
         self.assertTrue(any("verificações" in text for text in console.of("ok") + console.of("warn")))
-        del os.environ["AWS_CONFIG_FILE"]
+        self.config.unlink()
         code, console = self.run_doctor()
         self.assertEqual(code, 1)
         self.assertTrue(any("falhas" in text for text in console.of("fail")))

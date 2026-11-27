@@ -63,6 +63,7 @@ class DispatchTest(unittest.TestCase):
             code, _, err = run(command)
             self.assertEqual(code, cli.EXIT_USAGE)
             self.assertIn("role init", err)
+            self.assertIn("source ~/.zshrc", err)  # quem ja rodou o init so precisa de um terminal novo
 
     def test_profile_commands_go_to_profiles_with_the_full_arguments(self):
         with mock.patch.object(cli.profiles, "main", return_value=0) as main:

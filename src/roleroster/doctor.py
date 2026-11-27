@@ -152,7 +152,7 @@ def check_browser():
 def check_aws_files():
     config = os.environ.get("AWS_CONFIG_FILE", "")
     if not config:
-        return [Result(FAIL, "Arquivos da AWS ainda não escolhidos", "role sso")]
+        return [Result(WARN, "Arquivos da AWS ainda não escolhidos", "role sso")]
     path = Path(config)
     if not path.exists():
         return [Result(FAIL, f"O config da AWS não existe: {onboarding.tilde(path)}", "role sso")]
@@ -179,7 +179,7 @@ def check_env_file():
 def check_confluence(online):
     base, email = os.environ.get("CONFLUENCE_BASE_URL", ""), os.environ.get("CONFLUENCE_EMAIL", "")
     if not (base and email):
-        return [Result(FAIL, "Confluence ainda não configurado (URL e e-mail)", "role sso")]
+        return [Result(WARN, "Confluence ainda não configurado (URL e e-mail)", "role sso")]
     results = [Result(OK, f"Confluence {base} como {email}")]
     in_env = bool(os.environ.get("CONFLUENCE_TOKEN"))
     in_vault = bool(vault.get_token())
