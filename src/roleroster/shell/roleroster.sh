@@ -193,6 +193,7 @@ _aws_assume_and_share() {
 
   local original="${AWS_PROFILE%$_AWS_EXPORT_SUFFIX}"
   local exported="$original$_AWS_EXPORT_SUFFIX"
+  mkdir -p "$_ROLE_HOME/state"  # instalacao nova: a pasta so existiria depois do session-save
   printf '%s\n' "$exported" > "$_AWS_STATE_FILE"
   _aws_profiles prune-exported "$exported"
 
