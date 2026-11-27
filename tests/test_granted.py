@@ -92,6 +92,22 @@ class EnsureSettingsTest(unittest.TestCase):
         self.path.parent.mkdir()
         self.path.write_text(text)
 
+    def test_browser_missing_when_the_config_has_no_default_browser(self):
+        self.write('DefaultBrowser = ""\nExportCredsToAWS = true\n')
+        self.assertTrue(granted.browser_missing())
+
+    def test_browser_missing_with_no_config_file_or_no_key(self):
+        self.assertTrue(granted.browser_missing())  # sem arquivo
+        self.write("ExportCredsToAWS = true\n")
+        self.assertTrue(granted.browser_missing())
+
+    def test_browser_is_not_missing_when_one_is_set_and_never_without_granted(self):
+        self.write(FULL)
+        self.assertFalse(granted.browser_missing())
+        with mock.patch.object(granted.shutil, "which", return_value=None):
+            (self.home / ".granted" / "config").write_text("")
+            self.assertFalse(granted.browser_missing())  # sem o Granted nao ha o que gravar
+
     def test_nothing_to_do_when_both_keys_are_right(self):
         self.write(FULL.replace("[Keyring]", 'ExportCredentialSuffix = "exported"\n\n[Keyring]'))
         before = self.path.read_text()

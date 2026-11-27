@@ -501,6 +501,13 @@ class GrantedOfferTest(unittest.TestCase):
         self.run_main("sync", "/opt/homebrew/bin/granted").assert_not_called()
         self.run_main("status", None).assert_not_called()
 
+    def test_the_saved_browser_is_reapplied_after_the_granted_settings(self):
+        with mock.patch.object(profiles.onboarding, "reapply_browser", return_value=True) as reapply, \
+                mock.patch.object(profiles, "warn") as warn:
+            self.run_main("sync", "/bin/granted")
+        reapply.assert_called_once()
+        warn.assert_any_call("Navegador gravado no Granted.")
+
     def test_without_a_terminal_nothing_is_offered_because_nobody_could_answer(self):
         self.run_main("sync", None, interactive=False).assert_not_called()
 

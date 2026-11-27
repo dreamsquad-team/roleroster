@@ -90,6 +90,15 @@ def ensure_settings():
     return changed
 
 
+def browser_missing():
+    """True se o config do Granted ainda nao tem navegador (ele perguntaria no meio do login)."""
+    if not executable():
+        return False
+    path = config_path()
+    value = current_value(path.read_text(), "DefaultBrowser") if path.exists() else None
+    return value in (None, "", '""')
+
+
 def quote(text):
     """Texto como string do TOML."""
     return json.dumps(text, ensure_ascii=False)

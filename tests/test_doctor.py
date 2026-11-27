@@ -61,7 +61,8 @@ class DoctorTestCase(unittest.TestCase):
         for patch in (mock.patch.dict(os.environ, env, clear=True),
                       mock.patch.object(confluence, "ENV_PATH", self.env_path),
                       mock.patch.object(doctor.shutil, "which", lambda name: f"/usr/bin/{name}"),
-                      mock.patch.object(doctor, "granted_version", lambda: doctor.TESTED_GRANTED)):
+                      mock.patch.object(doctor, "granted_version", lambda: doctor.TESTED_GRANTED),
+                      mock.patch.object(doctor.granted, "browser_missing", lambda: False)):
             patch.start()
             self.addCleanup(patch.stop)
         self.config.write_text("[profile BASE]\nregion = us-east-1\n")
@@ -132,6 +133,15 @@ class ConfigChecksTest(DoctorTestCase):
     def test_a_browser_that_disappeared_fails(self):
         self.browser.unlink()
         self.assertEqual(doctor.check_browser()[0].status, doctor.FAIL)
+
+    def test_a_browser_the_granted_config_does_not_know_is_a_warning_with_a_fix(self):
+        with mock.patch.object(doctor.granted, "browser_missing", lambda: True):
+            results = doctor.check_browser()
+        self.assertEqual(self.statuses(results), [doctor.OK, doctor.WARN])
+        self.assertIsNotNone(results[1].fix)
+        with mock.patch.object(doctor.onboarding, "reapply_browser") as reapply:
+            results[1].fix()
+        reapply.assert_called_once()
 
     def test_the_browser_line_says_the_console_mode(self):
         self.assertIn("visitante", doctor.check_browser()[0].text)

@@ -398,6 +398,20 @@ def migrate_token_to_vault(path):
     return True
 
 
+def reapply_browser():
+    """Regrava no Granted o navegador que o .env guarda, se o config dele nao o tem.
+
+    Acontece quando o Granted foi instalado depois da escolha, ou o ~/.granted foi apagado: sem isto
+    o Granted faz as perguntas de primeira execucao dele no meio do `role sso`. Devolve True se gravou.
+    """
+    key = os.environ.get("ROLEROSTER_BROWSER", "")
+    if not key or key == "none" or not granted.browser_missing():
+        return False
+    path = os.environ.get("ROLEROSTER_BROWSER_PATH") or browsers.find(key)
+    sso_path = browsers.find(os.environ.get("ROLEROSTER_SSO_BROWSER") or key) or path
+    return bool(path) and granted.set_browsers(key, path, sso_path)
+
+
 def ask_token(console, path):
     """Pede o token, testa no Confluence e so grava se funcionar.
 
