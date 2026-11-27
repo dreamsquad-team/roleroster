@@ -4,6 +4,8 @@ Segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o [Version
 
 ## [Não lançado]
 
+## [0.1.0] - 2026-11-27
+
 ### Adicionado
 - Comando `role` (e `roleroster`): `sso`, `console`, `assume`, `sync`, `squads`, `setup`, `status`, `browser`, `notices`, `token`, `doctor`, `preset` e `init`. O que não é do roleroster vai para o Granted.
 - Sincronização dos perfis de Switch Role das páginas do Confluence para o `~/.aws/config` (bloco gerado, seção manual preservada).
