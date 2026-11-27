@@ -1,0 +1,67 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "roleroster"
+dynamic = ["version"]
+description = "Perfis de Switch Role do Confluence no ~/.aws/config, com o Granted"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+dependencies = ["questionary>=2.1", "rich>=13", "keyring>=25"]
+authors = [{ name = "DreamSquad" }]
+keywords = ["aws", "switch-role", "confluence", "granted", "sso"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: MacOS",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Systems Administration",
+]
+
+[project.urls]
+Repository = "https://github.com/dreamsquad-team/roleroster"
+Issues = "https://github.com/dreamsquad-team/roleroster/issues"
+Changelog = "https://github.com/dreamsquad-team/roleroster/blob/main/CHANGELOG.md"
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.6", "build>=1", "twine>=5", "pip-audit>=2.7"]
+
+[project.scripts]
+role = "roleroster.cli:main"
+roleroster = "roleroster.cli:main"
+
+[tool.hatch.version]
+path = "src/roleroster/__init__.py"  # a versao mora num lugar so
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/roleroster"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+extend-exclude = [".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501", "E741"]  # frases de teste longas e variaveis curtas em lambdas
+
+[tool.coverage.run]
+source = ["roleroster"]
+branch = true
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
