@@ -554,6 +554,8 @@ def main(argv=None):
         adjusted = granted.ensure_settings()
         if adjusted:
             warn(f"Granted ajustado ({', '.join(adjusted)}).")
+        if onboarding.reapply_browser():
+            warn("Navegador gravado no Granted.")
     try:
         code = args.run(args)
     except (KeyboardInterrupt, EOFError):

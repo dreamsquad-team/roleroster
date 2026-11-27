@@ -755,6 +755,41 @@ class TokenVaultTest(EnvTestCase):
         self.assertEqual(self.fake.store, {})
 
 
+class ReapplyBrowserTest(EnvTestCase):
+    """O navegador fica no .env; se o Granted entrou depois, o config dele nao o tem e ele perguntaria no login."""
+
+    def setUp(self):
+        super().setUp()
+        self.fill(ROLEROSTER_BROWSER_PATH="/Apps/Chrome", ROLEROSTER_SSO_BROWSER="chrome")
+        for patcher in (
+            mock.patch.object(onboarding.granted, "browser_missing", return_value=True),
+            mock.patch.object(onboarding.granted, "set_browsers", return_value=True),
+            mock.patch.object(onboarding.browsers, "find", return_value="/Apps/Chrome"),
+        ):
+            patcher.start()
+            self.addCleanup(patcher.stop)
+
+    def test_it_writes_the_saved_browser_into_the_granted_config(self):
+        self.assertTrue(onboarding.reapply_browser())
+        onboarding.granted.set_browsers.assert_called_once_with("chrome", "/Apps/Chrome", "/Apps/Chrome")
+
+    def test_it_does_nothing_when_the_granted_config_already_has_a_browser(self):
+        onboarding.granted.browser_missing.return_value = False
+        self.assertFalse(onboarding.reapply_browser())
+        onboarding.granted.set_browsers.assert_not_called()
+
+    def test_it_does_nothing_without_a_chosen_browser_or_with_none(self):
+        for value in ("", "none"):
+            os.environ["ROLEROSTER_BROWSER"] = value
+            self.assertFalse(onboarding.reapply_browser())
+        onboarding.granted.set_browsers.assert_not_called()
+
+    def test_the_path_falls_back_to_the_installed_browser_when_the_env_lost_it(self):
+        del os.environ["ROLEROSTER_BROWSER_PATH"]
+        self.assertTrue(onboarding.reapply_browser())
+        self.assertEqual(onboarding.granted.set_browsers.call_args.args[1], "/Apps/Chrome")
+
+
 class ChooseSquadsTest(EnvTestCase):
     def setUp(self):
         super().setUp()

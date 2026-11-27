@@ -116,6 +116,11 @@ def _fix_granted_config():
     return f"ajustado: {', '.join(granted.ensure_settings())}"
 
 
+def _fix_granted_browser():
+    onboarding.reapply_browser()
+    return "navegador gravado no Granted"
+
+
 def _fix_token_location():
     if onboarding.migrate_token_to_vault(confluence.ENV_PATH):
         return f"token movido para o {vault.name()}"
@@ -147,7 +152,11 @@ def check_browser():
         return [Result(FAIL, f"O {label} escolhido não foi encontrado em {path or '(sem caminho)'}", "role browser")]
     mode = os.environ.get("ROLEROSTER_CONSOLE_MODE", browsers.DEFAULT_MODE)
     how = "containers (Granted)" if key == "firefox" else browsers.mode_label(mode).lower()
-    return [Result(OK, f"Navegador: {label}, console em modo {how}")]
+    results = [Result(OK, f"Navegador: {label}, console em modo {how}")]
+    if granted.browser_missing():
+        hint = "sem isso o Granted pergunta o navegador no meio do login"
+        results.append(Result(WARN, f"O Granted ainda não tem o {label} como navegador", hint, fix=_fix_granted_browser))
+    return results
 
 
 def check_aws_files():

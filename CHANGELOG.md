@@ -10,6 +10,7 @@ Segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o [Version
 - Sem o Granted, `role sso`, `role console` e `role assume` terminavam com `no such file or directory: .../assume`. Agora avisam "O Granted não está instalado. Rode role init para instalar." e `sso` e `console` param logo depois do sync, antes de pedir o perfil.
 - `role sync`, `role squads` e `role setup` (portanto o primeiro `role sso`) oferecem instalar o Granted quando ele falta, e não só o `role init`.
 - Um Granted instalado depois que o terminal abriu é reconhecido no uso seguinte, sem abrir outro terminal.
+- O navegador escolhido no roleroster (que fica no `.env`) é regravado no config do Granted quando o config não o tem, por exemplo se o Granted foi instalado depois da escolha ou o `~/.granted` foi apagado. Antes, o Granted fazia as perguntas de primeira execução dele ("Use Firefox as default Granted browser?") no meio do `role sso`. O `role doctor` avisa e o `--fix` regrava.
 
 ## [0.2.0] - 2026-11-27
 
