@@ -27,7 +27,7 @@ def section(title, body):
     )
 
 
-def profile_block(name, account, role="dreamsquad-login", region="us-east-1"):
+def profile_block(name, account, role="acme-login", region="us-east-1"):
     return f"[{name}]\naws_account_id={account}\nrole_name={role}\nregion={region}\n"
 
 

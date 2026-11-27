@@ -34,7 +34,7 @@ region = us-east-1
 """
 
 
-def candidate(name, account="111111111111", title="Acme", region="us-east-1", role="dreamsquad-login"):
+def candidate(name, account="111111111111", title="Acme", region="us-east-1", role="acme-login"):
     return {
         "profile": name,
         "page_title": title,
@@ -96,7 +96,7 @@ class RenderBlockTest(unittest.TestCase):
         self.assertEqual(block.count("# --- Acme"), 1)
         self.assertIn(
             "[profile acme-prod]\nsource_profile = DREAMSQUAD\n"
-            "role_arn = arn:aws:iam::111111111111:role/dreamsquad-login\nregion = us-east-1\n",
+            "role_arn = arn:aws:iam::111111111111:role/acme-login\nregion = us-east-1\n",
             block,
         )
         self.assertNotIn("color", block)

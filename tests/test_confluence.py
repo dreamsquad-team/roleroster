@@ -41,13 +41,13 @@ def expand_macro(title, inner):
 
 EXTEND_BLOCK = """[acme-prod]
 aws_account_id=111111111111
-role_name=dreamsquad-login
+role_name=acme-login
 region=us-east-1
 color=ff0000
 
 [acme-dev]
 aws_account_id=222222222222
-role_name=dreamsquad-login
+role_name=acme-login
 region=sa-east-1
 color=0000ff
 external_id=nao-deve-ser-guardado
@@ -64,13 +64,13 @@ class ExtractSwitchRolesTest(unittest.TestCase):
         self.assertTrue(result.section_found)
         self.assertEqual(result.code_blocks, 1)
         self.assertEqual(by_name["acme-prod"]["aws_account_id"], "111111111111")
-        self.assertEqual(by_name["acme-prod"]["role_name"], "dreamsquad-login")
+        self.assertEqual(by_name["acme-prod"]["role_name"], "acme-login")
         self.assertEqual(by_name["acme-dev"]["region"], "sa-east-1")
 
     def test_role_arn_is_derived_from_account_and_role_name(self):
         page = expand_macro("Switch Role", code_macro(EXTEND_BLOCK))
         prod = extract_switch_roles(page).profiles[0]
-        self.assertEqual(prod["role_arn"], "arn:aws:iam::111111111111:role/dreamsquad-login")
+        self.assertEqual(prod["role_arn"], "arn:aws:iam::111111111111:role/acme-login")
 
     def test_bold_text_marker(self):
         page = "<p><strong>Switch Role</strong></p>" + code_macro(EXTEND_BLOCK)
