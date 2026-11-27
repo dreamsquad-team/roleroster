@@ -67,7 +67,7 @@ class SyncEndToEndTest(unittest.TestCase):
             self.assertIn(wanted, text)
         self.assertNotIn("velho-prod", text)  # pasta de inativos
         self.assertIn("[profile gama-prod]", text)  # o espaco do nome virou hifen
-        self.assertIn("role_arn = arn:aws:iam::111111111111:role/dreamsquad-login", text)
+        self.assertIn("role_arn = arn:aws:iam::111111111111:role/acme-login", text)
         self.assertIn("source_profile = roleroster-base", text)
         self.assertTrue(text.startswith(BASE.split("# ----")[0]))  # o que o usuario escreveu continua no lugar
 

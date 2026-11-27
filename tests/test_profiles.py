@@ -36,7 +36,7 @@ region = us-east-1
 
 [profile acme-prod]
 source_profile = DREAMSQUAD
-role_arn = arn:aws:iam::111111111111:role/dreamsquad-login
+role_arn = arn:aws:iam::111111111111:role/acme-login
 region = sa-east-1
 
 [profile acme-dev]
@@ -47,10 +47,10 @@ role_arn = arn:aws:iam::222222222222:role/admin/ops
 
 [profile antigo-prod]
 source_profile = DREAMSQUAD
-role_arn = arn:aws:iam::444444444444:role/dreamsquad-login
+role_arn = arn:aws:iam::444444444444:role/acme-login
 # <<< confluence-sync <<<
 
-[sso-session dreamsquad-login]
+[sso-session acme-login]
 sso_region = us-east-1
 
 [profile acme-prod-exported]
@@ -83,7 +83,7 @@ class ReadEntriesTest(unittest.TestCase):
         self.assertEqual(self.entries["acme-prod"]["title"], "Acme Corp")
 
     def test_detail_for_assumed_role_and_for_sso(self):
-        self.assertEqual(detail(self.entries["acme-prod"]), "111111111111  dreamsquad-login  sa-east-1")
+        self.assertEqual(detail(self.entries["acme-prod"]), "111111111111  acme-login  sa-east-1")
         self.assertEqual(detail(self.entries["acme-dev"]), "222222222222  ops")
         self.assertEqual(detail(self.entries["DREAMSQUAD"]), "999999999999  AssumeRole  us-east-1")
 
