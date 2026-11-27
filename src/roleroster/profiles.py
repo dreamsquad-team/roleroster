@@ -548,8 +548,9 @@ def main(argv=None):
     confluence.load_env_file()  # AWS_CONFIG_FILE etc. escolhidos no onboarding
     args = build_parser().parse_args(argv)
     if args.command in ("sync", "squads", "setup"):
-        if not granted.executable():
-            granted_install.offer(ui.make_console())
+        console = ui.make_console()
+        if not granted.executable() and console.interactive():  # sem terminal ninguem responde: o shell avisa depois
+            granted_install.offer(console)
         adjusted = granted.ensure_settings()
         if adjusted:
             warn(f"Granted ajustado ({', '.join(adjusted)}).")
