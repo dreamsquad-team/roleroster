@@ -141,6 +141,13 @@ class SsoFlagsTest(ShellTestCase):
         self.assertIn("renova sozinha até", err)
         self.assertEqual((self.state / "current_profile").read_text().strip(), "perfil-exported")
 
+    def test_the_first_sso_on_a_new_install_creates_the_state_folder(self):
+        self.state.rmdir()
+        _, err = self.sh("role sso perfil")
+        self.assertNotIn("No such file", err)
+        self.assertEqual((self.state / "current_profile").read_text().strip(), "perfil-exported")
+        self.assertEqual(self.session()["profile"], "perfil")
+
     def test_no_renew_flag_turns_it_off_and_is_not_passed_to_assume(self):
         _, err = self.sh("role sso --no-renew perfil")
         self.assertEqual(self.assume_calls(), ["assume perfil"])
