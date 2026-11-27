@@ -362,6 +362,19 @@ def ask_email(console, path):
     confluence.save_env({"CONFLUENCE_EMAIL": email}, path=path)
 
 
+def recheck_email(console, email, path):
+    """Depois de um token recusado, o e-mail digitado errado e a causa mais comum: mostra o atual e deixa corrigir."""
+    while True:
+        answer = console.ask("E-mail da conta Atlassian (Enter mantém)", default=email)
+        if EMAIL_RE.fullmatch(answer):
+            break
+        console.fail("E-mail inválido.")
+    if answer != email:
+        confluence.save_env({"CONFLUENCE_EMAIL": answer}, path=path)
+        os.environ["CONFLUENCE_EMAIL"] = answer
+    return answer
+
+
 def store_token(console, token, path):
     """Guarda o token no cofre do sistema; sem cofre, no .env (permissao 600).
 
@@ -412,7 +425,8 @@ def ask_token(console, path):
         except ConfluenceAuthError:
             rejected += 1
             console.fail(f"O Confluence recusou o token ({rejected}/{MAX_ATTEMPTS}).")
-            console.note("Confira o e-mail e se o token foi copiado inteiro.")
+            if rejected < MAX_ATTEMPTS:
+                email = recheck_email(console, email, path)
             continue
         except ConfluenceError as error:
             store_token(console, token, path)

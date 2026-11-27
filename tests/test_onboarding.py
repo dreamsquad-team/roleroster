@@ -646,6 +646,19 @@ class TokenTest(EnvTestCase):
             onboarding.ask_token(console, self.env_path)
         self.assertFalse(self.env_path.exists())
 
+    def test_after_a_rejection_the_email_is_asked_again_and_a_typo_is_fixed(self):
+        confluence.check_credentials.side_effect = [ConfluenceAuthError("recusado"), None]
+        console = FakeConsole(answers=["certo@b.co"], secrets=["a", "b"])
+        onboarding.ask_token(console, self.env_path)
+        self.assertEqual(confluence.check_credentials.call_args.args[1], "certo@b.co")
+        self.assertEqual(self.env_lines()["CONFLUENCE_EMAIL"], "certo@b.co")
+
+    def test_pressing_enter_on_the_email_keeps_it(self):
+        confluence.check_credentials.side_effect = [ConfluenceAuthError("recusado"), None]
+        console = FakeConsole(secrets=["a", "b"])
+        onboarding.ask_token(console, self.env_path)
+        self.assertEqual(confluence.check_credentials.call_args.args[1], os.environ["CONFLUENCE_EMAIL"])
+
     def test_a_blank_enter_opens_the_link_once_and_does_not_consume_a_validation(self):
         console = FakeConsole(secrets=["", "ok"])
         onboarding.ask_token(console, self.env_path)
