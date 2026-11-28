@@ -423,6 +423,25 @@ class RoleDispatchTest(ShellTestCase):
         self.assertIn("Nenhuma sessão", err)
         self.assertEqual(self.assume_calls(), [])
 
+    def test_role_init_reloads_the_script_in_this_terminal(self):
+        """Recarregar zera o contador de espera da renovacao, que o script poe em 0 ao ser lido."""
+        shell_dir = self.home / "shell"
+        shell_dir.mkdir()
+        installed = FISH_SCRIPT if self.is_fish else SCRIPT
+        shutil.copy(installed, shell_dir / installed.name)  # o que o role init instala
+        if self.is_fish:
+            script = "set -g _AWS_RENEW_RETRY_AT 99; role init --dry-run --shell zsh; echo FIM=$status R=$_AWS_RENEW_RETRY_AT"
+        else:
+            script = "_AWS_RENEW_RETRY_AT=99; role init --dry-run --shell zsh; echo FIM=$? R=$_AWS_RENEW_RETRY_AT"
+        out, err = self.sh(script)
+        self.assertIn("FIM=0 R=0", out)
+        self.assertNotIn("novo terminal", err)  # nada de pedir terminal novo com a funcao ja carregada
+
+    def test_role_init_passes_its_exit_code_on(self):
+        out, _ = self.sh("role init --shell invalido; echo FIM=$status" if self.is_fish
+                         else "role init --shell invalido; echo FIM=$?")
+        self.assertIn("FIM=2", out)
+
     def test_tells_granted_not_to_offer_its_own_alias(self):
         out, _ = self.sh('echo "g=$GRANTED_ALIAS_CONFIGURED"')
         self.assertIn("g=true", out)

@@ -4,6 +4,15 @@ Segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o [Version
 
 ## [Não lançado]
 
+## [1.0.0] - 2026-11-27
+
+Primeira versão estável. A interface (`role sso`, `role console`, `role init`, `role preset`, `role doctor` e as variáveis do `.env`) segue o versionamento semântico daqui em diante.
+
+### Alterado
+- O `role init` não guarda mais cópia do rc do shell (`backup/.zshrc.prev`). O bloco tem 3 linhas e `role init --uninstall` o remove por inteiro. A pasta `backup` deixou de existir, e o `--uninstall` também apaga a pasta do script quando ela fica vazia (o `.env` e o estado ficam).
+- Num terminal que já tem o roleroster ligado, o `role init` recarrega o script na hora (zsh, bash e fish), sem pedir terminal novo. Na primeira instalação o aviso ficou numa linha: "Abra um terminal novo para usar o role." Um programa filho não consegue mudar o shell que o chamou, então a primeira vez precisa do terminal novo.
+- Classificação do pacote no PyPI: de Alpha para Production/Stable, com o Python 3.14 listado.
+
 ## [0.4.1] - 2026-11-27
 
 ### Removido
