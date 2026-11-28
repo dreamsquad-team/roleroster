@@ -106,11 +106,30 @@ class MainTest(unittest.TestCase):
         script = paths.shell_dir() / init.SCRIPT_NAME
         self.assertIn("role()", script.read_text())
         self.assertIn(f'source "{script}"', self.rc.read_text())
-        self.assertIn("novo terminal", out)
+        self.assertIn("terminal novo", out)
 
-    def test_keeps_a_backup_of_the_previous_rc(self):
+    def test_keeps_no_backup_of_the_rc_and_the_block_comes_off_cleanly(self):
         self.run_init()
-        self.assertEqual((paths.backup_dir() / "zshrc.prev").read_text(), RC)
+        self.assertFalse((paths.home() / "backup").exists())
+        self.run_init("--uninstall")
+        self.assertEqual(self.rc.read_text(), RC)
+        self.assertFalse((paths.home() / "backup").exists())
+        self.assertFalse(paths.shell_dir().exists())  # a pasta do script vazia some junto
+
+    def test_uninstall_keeps_the_env_and_the_state(self):
+        self.run_init()
+        (paths.home() / ".env").write_text("A=1\n")
+        self.run_init("--uninstall")
+        self.assertEqual((paths.home() / ".env").read_text(), "A=1\n")
+
+    def test_the_new_terminal_hint_is_only_given_when_the_role_function_is_not_loaded(self):
+        _, out, _ = self.run_init()
+        self.assertIn("terminal novo", out)
+        self.rc.write_text(RC)
+        with mock.patch.dict(os.environ, {init.LOADED_VAR: "1"}):
+            _, out, _ = self.run_init()
+        self.assertIn("bloco gravado", out)
+        self.assertNotIn("terminal novo", out)
 
     def test_second_run_says_it_is_up_to_date(self):
         self.run_init()

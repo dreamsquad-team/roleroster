@@ -281,7 +281,7 @@ class AlternativeConfigPathTest(unittest.TestCase):
             self.assertIn(ACCOUNTS_HEADER, path.read_text())
             self.assertIn(MANUAL_HEADER, path.read_text())
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o644)
-            self.assertFalse(paths.backup_dir().exists())
+            self.assertFalse((paths.home() / "backup").exists())
 
     def test_rewriting_an_existing_config_keeps_no_copy_of_it(self):
         from roleroster import awsconfig as sync
@@ -292,7 +292,7 @@ class AlternativeConfigPathTest(unittest.TestCase):
                                  sync.Selection(), [], {})
             sync.write_config(path, plan)
             self.assertIn(ACCOUNTS_HEADER, path.read_text())
-            self.assertFalse(paths.backup_dir().exists())
+            self.assertFalse((paths.home() / "backup").exists())
             self.assertEqual([p.name for p in Path(tmp).iterdir()], ["config"])
 
     def test_plan_sync_treats_a_missing_file_as_empty(self):

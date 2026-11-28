@@ -374,6 +374,12 @@ function role
         case assume
             _aws_need_granted; or return 1
             source $_AWS_ASSUME $rest
+        case init
+            env ROLEROSTER_SHELL_LOADED=1 roleroster $argv
+            set -l rc $status
+            # o script pode ter mudado: recarrega neste terminal, sem pedir terminal novo
+            test -r $_ROLE_HOME/shell/roleroster.fish; and source $_ROLE_HOME/shell/roleroster.fish
+            return $rc
         case '*'
             command roleroster $argv
             set -l rc $status

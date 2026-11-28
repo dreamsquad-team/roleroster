@@ -5,7 +5,6 @@ Tudo fica numa pasta so (ROLEROSTER_HOME, ou a pasta de configuracao do usuario)
   .env        URL, e-mail, token e squads do Confluence (permissao 600)
   state/      sessao compartilhada entre terminais
   shell/      o script que o `role init` liga no .zshrc
-  backup/     a versao anterior do rc do shell, guardada antes de o `role init` mexer nele
 """
 import os
 import sys
@@ -37,6 +36,3 @@ def session_file():
 def shell_dir():
     return home() / "shell"
 
-
-def backup_dir():
-    return home() / "backup"

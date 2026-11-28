@@ -7,13 +7,13 @@ nao ha atalhos soltos, para nao colidir com outros programas.
 """
 import argparse
 import os
-import shutil
 import sys
 import tempfile
 from importlib import resources
 from pathlib import Path
 
 from . import awscli_install, granted_install, paths, preset, ui
+from .granted_install import tilde
 
 BEGIN = "# >>> roleroster (gerado por `role init`, nao edite) >>>"
 END = "# <<< roleroster <<<"
@@ -21,6 +21,7 @@ SCRIPT_NAME = "roleroster.sh"  # o mesmo arquivo para zsh e bash
 FISH_SCRIPT_NAME = "roleroster.fish"  # o fish tem sintaxe propria: arquivo a parte
 LEGACY_SCRIPT_NAME = "roleroster.zsh"  # nome das versoes antigas; vira um atalho para o novo
 SHELLS = ("zsh", "bash", "fish")
+LOADED_VAR = "ROLEROSTER_SHELL_LOADED"  # a funcao `role` do shell poe isto ao chamar `role init`
 
 
 def script_name(shell):
@@ -128,12 +129,6 @@ def refresh_script():
     return changed
 
 
-def backup_rc(rc):
-    if rc.exists():
-        paths.backup_dir().mkdir(parents=True, exist_ok=True)
-        shutil.copy2(rc, paths.backup_dir() / f"{rc.name}.prev")
-
-
 def build_parser():
     parser = argparse.ArgumentParser(prog="role init", description=__doc__.strip().splitlines()[0])
     parser.add_argument("-s", "--shell", choices=SHELLS, help="zsh, bash ou fish (padrao: o shell atual, $SHELL)")
@@ -190,9 +185,11 @@ def main(argv):
     if new_text == text:
         print(f"role init: {rc} ja estava em dia.")
         return 0
-    backup_rc(rc)
     write_text(rc, new_text)
-    print(f"role init: bloco gravado em {rc}. Abra um novo terminal (ou rode: source {rc}).")
+    if os.environ.get(LOADED_VAR):
+        print(f"role init: bloco gravado em {tilde(rc)}.")  # a funcao `role` recarrega o script neste terminal
+    else:
+        print(f"role init: bloco gravado em {tilde(rc)}. Abra um terminal novo para usar o role.")
     return 0
 
 
@@ -202,7 +199,6 @@ def uninstall(args, rc, text, shell="zsh"):
         print("role init: o bloco seria removido." if new_text != text else "role init: nao ha bloco para remover.")
         return 0
     if new_text != text:
-        backup_rc(rc)
         write_text(rc, new_text)
     if used_by_another_rc(rc, shell):
         print(f"role init: roleroster removido de {rc}. O script continua, porque outro shell seu ainda o usa.")
@@ -210,6 +206,11 @@ def uninstall(args, rc, text, shell="zsh"):
     names = (FISH_SCRIPT_NAME,) if shell == "fish" else (SCRIPT_NAME, LEGACY_SCRIPT_NAME)
     for name in names:
         (paths.shell_dir() / name).unlink(missing_ok=True)
+    for folder in (paths.shell_dir(), paths.home()):
+        try:
+            folder.rmdir()  # so some se ficou vazia: o .env e o estado nunca sao apagados aqui
+        except OSError:
+            break
     print(f"role init: roleroster removido de {rc}. O .env e o estado em {paths.home()} ficaram.")
     return 0
 

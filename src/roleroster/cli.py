@@ -40,7 +40,7 @@ def main(argv=None):
         helptext.show()
         return 0
     command, rest = args[0], args[1:]
-    if init.refresh_script():
+    if init.refresh_script() and not (command == "init" and os.environ.get(init.LOADED_VAR)):
         print("role: script de shell atualizado; abra um novo terminal para usar a versao nova.", file=sys.stderr)
     if command in ("-V", "--version", "version"):
         print(f"roleroster {__version__}")

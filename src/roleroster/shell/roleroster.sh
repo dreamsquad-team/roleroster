@@ -40,6 +40,10 @@ case ":$PATH:" in
   *) [ -x "$HOME/.local/bin/assumego" ] && export PATH="$PATH:$HOME/.local/bin" ;;
 esac
 
+# Carregar o script de novo (role init num terminal que ja o tem) esbarraria no alias do assume,
+# que o zsh expande ao ler a definicao da funcao abaixo. A cada carga o alias volta em _aws_find_assume.
+unalias assume 2>/dev/null
+
 if [ -n "${ZSH_VERSION:-}" ]; then
   zmodload zsh/datetime
   _role_tick() { _ROLE_NOW=$EPOCHSECONDS; }
@@ -329,6 +333,12 @@ role() {
     sso) shift; _role_sso "$@" ;;
     console) shift; _role_console "$@" ;;
     assume) shift; _aws_need_granted || return 1; source "$_AWS_ASSUME" "$@" ;;
+    init)
+      ROLEROSTER_SHELL_LOADED=1 command roleroster "$@"
+      rc=$?
+      # o script pode ter mudado: recarrega neste terminal, sem pedir terminal novo
+      [ -r "$_ROLE_HOME/shell/roleroster.sh" ] && . "$_ROLE_HOME/shell/roleroster.sh"
+      return $rc ;;
     *)
       command roleroster "$@"
       rc=$?
