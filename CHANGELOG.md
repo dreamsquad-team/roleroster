@@ -4,6 +4,11 @@ Segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o [Version
 
 ## [Não lançado]
 
+## [0.4.1] - 2026-11-27
+
+### Removido
+- O `role sync` não guarda mais a cópia `backup/config.prev` do config da AWS a cada uso. Só o bloco gerado muda, e o resto do arquivo fica como estava. O `role init` continua guardando o rc do shell antes de editá-lo.
+
 ## [0.4.0] - 2026-11-27
 
 ### Adicionado

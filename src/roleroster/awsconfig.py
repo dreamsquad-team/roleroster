@@ -16,18 +16,14 @@ Cada perfil gerado fica assim:
     role_arn = arn:aws:iam::<aws_account_id>:role/<role_name>
     region = <region>
 
-Antes de gravar, a versao anterior do config fica em
-<pasta do roleroster>/backup/config.prev (fora do ~/.aws).
-
 Quem chama isto e o `role sync` (e, antes de escolher o perfil, o `role sso` e o `role console`).
 """
 import os
 import re
-import shutil
 import tempfile
 from pathlib import Path
 
-from . import paths, preset, settings
+from . import preset, settings
 from .confluence import (
     ConfluenceError,
     fetch_candidates,
@@ -42,7 +38,6 @@ PRESET_END = "# <<< preset <<<"
 ACCOUNTS_HEADER = "# ------------------ ACCOUNTS ------------------"
 MANUAL_HEADER = "# ------------------ MANUAL ------------------"
 MANUAL_NOTE = "# Perfis escritos a mao ficam aqui: o sync nunca altera nem apaga o que esta abaixo."
-CACHE_DIR = paths.backup_dir()
 PROFILE_NAME_RE = re.compile(r"[A-Za-z0-9_.@-]+")
 
 
@@ -281,9 +276,5 @@ def plan_sync(config_path, source_profile, squad_ids, include_inactive=False):
 
 
 def write_config(config_path, plan):
-    """Guarda a versao anterior fora do ~/.aws (se havia uma) e grava o config novo."""
-    if config_path.exists():
-        CACHE_DIR.mkdir(parents=True, exist_ok=True)
-        CACHE_DIR.chmod(0o700)
-        shutil.copy2(config_path, CACHE_DIR / "config.prev")
+    """Grava o config novo. So o bloco gerado muda, entao nao guarda copia da versao anterior."""
     write_atomic(config_path, plan.new_text)
