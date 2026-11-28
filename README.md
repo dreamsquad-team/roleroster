@@ -36,7 +36,7 @@ Escolha uma forma. Todas instalam o mesmo pacote e os comandos `role` e `roleros
 
 ```sh
 uv tool install roleroster                  # instala
-uv tool install roleroster==0.3.0           # uma versão específica
+uv tool install roleroster==0.4.0           # uma versão específica
 uv tool upgrade roleroster                  # atualiza
 uv tool uninstall roleroster                # remove
 ```
@@ -72,7 +72,7 @@ Confira que `~/.local/bin` está no seu `PATH`. Para atualizar, rode `~/.roleros
 Para testar uma versão que ainda não saiu no PyPI, ou uma branch:
 
 ```sh
-uv tool install git+https://github.com/dreamsquad-team/roleroster@v0.3.0
+uv tool install git+https://github.com/dreamsquad-team/roleroster@v0.4.0
 pipx install git+https://github.com/dreamsquad-team/roleroster@main
 ```
 
@@ -285,8 +285,8 @@ O roleroster não remove o Granted nem a AWS CLI. Para o Granted instalado por e
 O `pipx` ou o `uv` instalou uma versão antiga logo depois de um release. O índice do PyPI e o cache do `pip` levam alguns minutos para mostrar a versão nova. Instale sem cache, ou fixe a versão:
 
 ```sh
-pipx install --pip-args="--no-cache-dir" roleroster==0.3.0
-uv tool install --no-cache roleroster==0.3.0
+pipx install --pip-args="--no-cache-dir" roleroster==0.4.0
+uv tool install --no-cache roleroster==0.4.0
 ```
 
 Se já instalou a antiga, use `pipx install --force ...` ou `uv tool install --reinstall ...` com os mesmos argumentos. Confira com `role --version`.

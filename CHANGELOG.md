@@ -4,6 +4,8 @@ Segue o [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/) e o [Version
 
 ## [Não lançado]
 
+## [0.4.0] - 2026-11-27
+
 ### Adicionado
 - O preset aceita perfis SSO diretos (`[[aws.profiles]]` com `name`, `account_id`, `role` e `region` opcional), para a empresa entregar contas como Sandbox e Production a todo mundo. O sync grava esses perfis num bloco próprio do config da AWS (`# >>> preset ... <<<`) e o reescreve a cada uso, então mudar o preset muda os perfis de quem o instalou e remover um perfil do preset o remove do config. Um perfil escrito à mão com o mesmo nome vence, e um perfil do Confluence com o mesmo nome cede ao do preset. `role preset` mostra os perfis antes de pedir a confirmação.
 
