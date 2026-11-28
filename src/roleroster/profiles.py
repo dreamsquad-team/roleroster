@@ -183,11 +183,11 @@ def cmd_preset(args, console=None):
         warn(ui.ok_line("Preset removido") if preset.remove() else ui.note_line("Não havia preset instalado."))
         return 0
     if not args.source:
-        values = preset.load_installed()
-        if not values:
+        values, extra = preset.load_installed(), preset.load_installed_profiles()
+        if not values and not extra:
             warn(ui.note_line("Nenhum preset instalado. Instale com role preset <caminho ou URL https>."))
             return 0
-        console.summary("Preset instalado", preset.describe({"values": values}))
+        console.summary("Preset instalado", preset.describe({"values": values, "profiles": extra}))
         return 0
     try:
         installed = preset.install_with_confirmation(console, args.source, assume_yes=args.yes)

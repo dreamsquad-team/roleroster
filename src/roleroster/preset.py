@@ -16,13 +16,21 @@ e as convencoes das paginas do Confluence.
     base_role = "AssumeRole"         # permission set do perfil base
     extra_role = "AdministratorAccess"  # permission set sugerido para perfis SSO extras
 
+    [[aws.profiles]]                 # perfis SSO diretos que todos recebem (opcional, quantos quiser)
+    name = "ACME---Sandbox"
+    account_id = "210987654321"
+    role = "AdministratorAccess"
+    region = "us-east-1"             # opcional (padrao: a regiao dos perfis)
+
     [confluence]
     url = "https://acme.atlassian.net"
     root_id = "123456"               # pasta com uma pasta por squad
     role_section = "Switch Role"     # titulo da secao com o bloco de codigo
     inactive_prefix = "Inativ"       # paginas e pastas com este inicio de titulo ficam de fora
 
-Todas as chaves sao opcionais.
+Todas as chaves sao opcionais. Os perfis de `[[aws.profiles]]` ficam num bloco proprio do config da AWS
+que o sync reescreve a cada uso: mudar o preset muda os perfis de quem o instalou. Um perfil escrito a mao
+com o mesmo nome vence.
 """
 import os
 import re
@@ -49,6 +57,11 @@ SCHEMA = {
     },
 }
 URL_KEYS = ("sso_start_url", "confluence_url")
+PROFILE_KEYS = ("name", "account_id", "role", "region")
+NAME_RE = re.compile(r"[A-Za-z0-9_.@-]+")
+ROLE_RE = re.compile(r"[\w+=,.@-]+")
+REGION_RE = re.compile(r"[a-z]{2}(-[a-z]+)+-\d")
+MAX_PROFILES = 50
 
 
 class PresetError(Exception):
@@ -60,12 +73,12 @@ def installed_path():
 
 
 def parse(text):
-    """Texto TOML -> {"name": ..., "values": {chave canonica: texto}, "ignored": [chaves desconhecidas]}."""
+    """Texto TOML -> {"name", "values": {chave canonica: texto}, "profiles": [perfis], "ignored": [chaves desconhecidas]}."""
     try:
         data = tomllib.loads(text)
     except tomllib.TOMLDecodeError as error:
         raise PresetError(f"o preset não é um TOML válido: {error}") from error
-    values, ignored = {}, []
+    values, ignored, profiles = {}, [], []
     for section, fields in data.items():
         if section == "name":
             continue
@@ -74,15 +87,57 @@ def parse(text):
             continue
         for key, value in fields.items():
             canonical = SCHEMA[section].get(key)
-            if canonical is None:
+            if (section, key) == ("aws", "profiles"):
+                profiles = parse_profiles(value)
+            elif canonical is None:
                 ignored.append(f"{section}.{key}")
             elif not isinstance(value, str):
                 raise PresetError(f"{section}.{key} precisa ser um texto")
             elif value.strip():
                 values[canonical] = value.strip()
     validate(values)
+    check_profile_names(profiles, values.get("base_profile"))
     name = data.get("name")
-    return {"name": name if isinstance(name, str) else "", "values": values, "ignored": ignored}
+    return {"name": name if isinstance(name, str) else "", "values": values, "profiles": profiles, "ignored": ignored}
+
+
+def parse_profiles(items):
+    """`[[aws.profiles]]` -> lista de {"name", "account_id", "role", "region"} (region pode ser vazio)."""
+    if not isinstance(items, list) or not all(isinstance(item, dict) for item in items):
+        raise PresetError("aws.profiles precisa ser uma lista de tabelas: use [[aws.profiles]]")
+    if len(items) > MAX_PROFILES:
+        raise PresetError(f"aws.profiles aceita no máximo {MAX_PROFILES} perfis")
+    profiles = []
+    for index, item in enumerate(items, start=1):
+        unknown = sorted(set(item) - set(PROFILE_KEYS))
+        if unknown:
+            raise PresetError(f"aws.profiles #{index}: chave desconhecida: {', '.join(unknown)}")
+        fields = {key: item.get(key, "") for key in PROFILE_KEYS}
+        if not all(isinstance(value, str) for value in fields.values()):
+            raise PresetError(f"aws.profiles #{index}: todas as chaves precisam ser texto")
+        fields = {key: value.strip() for key, value in fields.items()}
+        label = fields["name"] or f"#{index}"
+        if not NAME_RE.fullmatch(fields["name"]):
+            raise PresetError(f"aws.profiles {label}: name precisa usar só letras, números e _ . @ -")
+        if not re.fullmatch(r"\d{12}", fields["account_id"]):
+            raise PresetError(f"aws.profiles {label}: account_id precisa ter 12 dígitos")
+        if not ROLE_RE.fullmatch(fields["role"]):
+            raise PresetError(f"aws.profiles {label}: role precisa ser o nome do permission set")
+        if fields["region"] and not REGION_RE.fullmatch(fields["region"]):
+            raise PresetError(f"aws.profiles {label}: region inválida")
+        profiles.append(fields)
+    return profiles
+
+
+def check_profile_names(profiles, base_profile):
+    seen = set()
+    for profile in profiles:
+        name = profile["name"]
+        if name in seen:
+            raise PresetError(f"aws.profiles: o nome {name} aparece duas vezes")
+        if name == base_profile:
+            raise PresetError(f"aws.profiles: {name} é o perfil base (base_profile)")
+        seen.add(name)
 
 
 def validate(values):
@@ -124,6 +179,8 @@ def describe(preset):
     labels = (("sso_start_url", "Portal SSO"), ("confluence_url", "Confluence"), ("base_profile", "Perfil base"),
               ("root_id", "Pasta raiz"), ("inactive_prefix", "Inativos começam com"))
     lines = [(label, values[key]) for key, label in labels if key in values]
+    if preset["profiles"]:
+        lines.append(("Perfis SSO", ", ".join(profile["name"] for profile in preset["profiles"])))
     return lines or [("Valores", f"{len(values)} definidos")]
 
 
@@ -159,6 +216,17 @@ def load_installed():
         return parse(path.read_text(encoding="utf-8"))["values"]
     except (PresetError, OSError):
         return {}
+
+
+def load_installed_profiles():
+    """Perfis `[[aws.profiles]]` do preset instalado ([] se nao ha ou se esta quebrado)."""
+    path = installed_path()
+    if not path.is_file():
+        return []
+    try:
+        return parse(path.read_text(encoding="utf-8"))["profiles"]
+    except (PresetError, OSError):
+        return []
 
 
 def install_with_confirmation(console, source, assume_yes=False):

@@ -12,6 +12,20 @@ base_account_id = "123456789012"     # conta do perfil base
 base_role = "AssumeRole"             # permission set do perfil base
 extra_role = "AdministratorAccess"   # sugerido para perfis SSO extras (role setup --advanced)
 
+# Perfis SSO diretos que todo mundo da empresa recebe (opcional, quantos quiser).
+# Ficam num bloco proprio do config e o sync os reescreve: mudar o preset muda os perfis de quem o instalou.
+# Um perfil escrito a mao com o mesmo nome vence.
+[[aws.profiles]]
+name = "ACME---Sandbox"
+account_id = "210987654321"
+role = "AdministratorAccess"
+region = "us-east-1"                 # opcional (padrao: a regiao dos perfis)
+
+[[aws.profiles]]
+name = "ACME---Production"
+account_id = "210987654322"
+role = "ViewOnlyAccess"
+
 [confluence]
 url = "https://acme.atlassian.net"
 root_id = "123456"                   # pasta com uma pasta por squad

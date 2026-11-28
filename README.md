@@ -205,7 +205,7 @@ role preset                                               # mostra o preset inst
 role preset -r                                            # remove
 ```
 
-O preset define só URLs, nomes e as convenções das páginas do Confluence, como o título da seção com os perfis e o prefixo das pastas de projetos inativos. O roleroster mostra o conteúdo e pede confirmação antes de instalar, e `--yes` pula a pergunta. Instale só presets que a sua empresa publicou. O que você responde no onboarding vale mais do que o preset.
+O preset define só URLs, nomes e as convenções das páginas do Confluence, como o título da seção com os perfis e o prefixo das pastas de projetos inativos. Ele também pode trazer perfis SSO diretos, como Sandbox e Production, com uma seção `[[aws.profiles]]` por perfil (`name`, `account_id`, `role` e, opcional, `region`). Esses perfis entram num bloco próprio do arquivo de config da AWS, que o sync reescreve a cada uso: ao mudar o preset, quem já o instalou recebe a mudança no próximo `role sso`. Um perfil escrito à mão com o mesmo nome vence. O roleroster mostra o conteúdo e pede confirmação antes de instalar, e `--yes` pula a pergunta. Instale só presets que a sua empresa publicou. O que você responde no onboarding vale mais do que o preset.
 
 ## Comandos
 
