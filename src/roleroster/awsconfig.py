@@ -27,7 +27,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from . import paths, settings
+from . import paths, preset, settings
 from .confluence import (
     ConfluenceError,
     fetch_candidates,
@@ -37,6 +37,8 @@ from .confluence import (
 
 BEGIN = "# >>> confluence-sync (gerado pelo script, nao edite) >>>"
 END = "# <<< confluence-sync <<<"
+PRESET_BEGIN = "# >>> preset (gerado pelo roleroster, nao edite) >>>"
+PRESET_END = "# <<< preset <<<"
 ACCOUNTS_HEADER = "# ------------------ ACCOUNTS ------------------"
 MANUAL_HEADER = "# ------------------ MANUAL ------------------"
 MANUAL_NOTE = "# Perfis escritos a mao ficam aqui: o sync nunca altera nem apaga o que esta abaixo."
@@ -177,6 +179,55 @@ def outside_block_names(text):
     return {p["profile"] for p in parse_profiles(before + (after or ""))}
 
 
+def remove_preset_block(text):
+    """Tira o bloco dos perfis do preset (e a linha em branco depois dele), se houver."""
+    start, end = text.find(PRESET_BEGIN), text.find(PRESET_END)
+    if start == -1 and end == -1:
+        return text
+    if start == -1 or end == -1 or end < start:
+        raise ConfluenceError("marcadores do bloco do preset estão corrompidos no config")
+    tail = text[end + len(PRESET_END):]
+    return text[:start] + (tail[2:] if tail.startswith("\n\n") else tail[1:] if tail.startswith("\n") else tail)
+
+
+def render_preset_block(profiles, session, sso_region, region):
+    lines = [PRESET_BEGIN, "# Fonte: preset da empresa (role preset), seção [[aws.profiles]].", ""]
+    for profile in profiles:
+        lines += [
+            f"[profile {profile['name']}]",
+            f"sso_session = {session}",
+            f"sso_region = {sso_region}",
+            f"sso_account_id = {profile['account_id']}",
+            f"sso_role_name = {profile['role']}",
+            f"region = {profile['region'] or region}",
+            "output = json",
+            "",
+        ]
+    lines.append(PRESET_END)
+    return "\n".join(lines) + "\n\n"
+
+
+def preset_profiles_to_write(text, profiles):
+    """Perfis do preset que entram no config: os que nao colidem com um perfil escrito a mao ou o base."""
+    taken = outside_block_names(remove_preset_block(text)) | {source_profile()}
+    return [profile for profile in profiles if profile["name"] not in taken]
+
+
+def apply_preset_profiles(text, wanted):
+    """Reescreve o bloco dos perfis do preset logo acima do bloco gerado pelo Confluence.
+
+    `wanted` vem de preset_profiles_to_write. Sem perfis o bloco some. O que esta fora dos marcadores nao muda.
+    """
+    text = remove_preset_block(text)
+    if not wanted:
+        return text
+    sso_region = settings.get("sso_region")
+    region = settings.from_user_or_preset("region") or sso_region
+    block = render_preset_block(wanted, settings.get("sso_session"), sso_region, region)
+    cut = text.find(BEGIN)
+    return block.join((text[:cut], text[cut:])) if cut != -1 else text + "\n" + block
+
+
 def change_counts(old_text, new_text):
     old = {p["profile"]: p for p in parse_profiles(managed_text(old_text))}
     new = {p["profile"]: p for p in parse_profiles(managed_text(new_text))}
@@ -221,8 +272,11 @@ def plan_sync(config_path, source_profile, squad_ids, include_inactive=False):
     old_text = config_path.read_text() if config_path.exists() else ""
     base, auth = require_config()
     candidates, stats = fetch_candidates(base, auth, squad_ids, include_inactive)
-    selection = select_profiles(candidates, outside_block_names(old_text))
+    wanted = preset_profiles_to_write(old_text, preset.load_installed_profiles())
+    reserved = outside_block_names(remove_preset_block(old_text)) | {profile["name"] for profile in wanted}
+    selection = select_profiles(candidates, reserved)
     new_text = apply_block(old_text, render_block(selection.profiles, source_profile))
+    new_text = apply_preset_profiles(new_text, wanted)
     return SyncPlan(old_text, new_text, selection, candidates, stats)
 
 

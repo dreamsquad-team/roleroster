@@ -63,6 +63,53 @@ class ParseTest(unittest.TestCase):
                 preset.parse(text)
             self.assertIn(expected, str(raised.exception), text)
 
+    def test_aws_profiles_are_read_validated_and_listed(self):
+        text = FULL.replace("[confluence]", """[[aws.profiles]]
+name = "ACME---Sandbox"
+account_id = "210987654321"
+role = "AdministratorAccess"
+
+[[aws.profiles]]
+name = "ACME---Production"
+account_id = "210987654322"
+role = "ViewOnlyAccess"
+region = "sa-east-1"
+
+[confluence]""")
+        parsed = preset.parse(text)
+        self.assertEqual(parsed["ignored"], [])
+        self.assertEqual(parsed["profiles"], [
+            {"name": "ACME---Sandbox", "account_id": "210987654321", "role": "AdministratorAccess", "region": ""},
+            {"name": "ACME---Production", "account_id": "210987654322", "role": "ViewOnlyAccess", "region": "sa-east-1"},
+        ])
+        self.assertEqual(preset.describe(parsed)[-1], ("Perfis SSO", "ACME---Sandbox, ACME---Production"))
+
+    def test_invalid_aws_profiles_are_rejected(self):
+        ok = 'name = "A"\naccount_id = "123456789012"\nrole = "R"\n'
+        for body, expected in (
+            ('name = "a b"\naccount_id = "123456789012"\nrole = "R"\n', "name precisa"),
+            ('name = "A"\naccount_id = "12"\nrole = "R"\n', "12 dígitos"),
+            ('name = "A"\naccount_id = "123456789012"\nrole = ""\n', "role precisa"),
+            (ok + 'region = "marte"\n', "region inválida"),
+            (ok + 'extra = "x"\n', "chave desconhecida"),
+            (ok + 'role = 5\n', "TOML"),
+        ):
+            with self.assertRaises(preset.PresetError) as raised:
+                preset.parse("[[aws.profiles]]\n" + body)
+            self.assertIn(expected, str(raised.exception), body)
+        with self.assertRaises(preset.PresetError) as raised:
+            preset.parse("[[aws.profiles]]\n" + ok + "[[aws.profiles]]\n" + ok)
+        self.assertIn("duas vezes", str(raised.exception))
+        with self.assertRaises(preset.PresetError) as raised:
+            preset.parse('[aws]\nbase_profile = "A"\n[[aws.profiles]]\n' + ok)
+        self.assertIn("perfil base", str(raised.exception))
+        with self.assertRaises(preset.PresetError):
+            preset.parse('[aws]\nprofiles = "texto"\n')
+        with self.assertRaises(preset.PresetError) as raised:
+            preset.parse("".join(f'[[aws.profiles]]\nname = "P{i}"\naccount_id = "123456789012"\nrole = "R"\n'
+                              for i in range(preset.MAX_PROFILES + 1)))
+        self.assertIn("no máximo", str(raised.exception))
+
     def test_describe_lists_what_matters_to_a_person_checking_a_preset(self):
         labels = [label for label, _ in preset.describe(preset.parse(FULL))]
         self.assertEqual(labels, ["Portal SSO", "Confluence", "Perfil base", "Pasta raiz", "Inativos começam com"])
