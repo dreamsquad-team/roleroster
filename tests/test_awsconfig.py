@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from roleroster import settings  # noqa: E402
+from roleroster import paths, settings  # noqa: E402
 from roleroster.awsconfig import (  # noqa: E402
     ACCOUNTS_HEADER,
     BEGIN,
@@ -276,14 +276,24 @@ class AlternativeConfigPathTest(unittest.TestCase):
         from roleroster import awsconfig as sync
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "outra" / "pasta" / "config_teste"
-            cache = Path(tmp) / "cache"
             plan = sync.SyncPlan("", apply_block("", render_block([], "DREAMSQUAD")), sync.Selection(), [], {})
-            with mock.patch.object(sync, "CACHE_DIR", cache):
-                sync.write_config(path, plan)
+            sync.write_config(path, plan)
             self.assertIn(ACCOUNTS_HEADER, path.read_text())
             self.assertIn(MANUAL_HEADER, path.read_text())
             self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o644)
-            self.assertFalse(cache.exists())
+            self.assertFalse(paths.backup_dir().exists())
+
+    def test_rewriting_an_existing_config_keeps_no_copy_of_it(self):
+        from roleroster import awsconfig as sync
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "config"
+            path.write_text("[profile meu]\nregion = sa-east-1\n")
+            plan = sync.SyncPlan(path.read_text(), apply_block(path.read_text(), render_block([], "DREAMSQUAD")),
+                                 sync.Selection(), [], {})
+            sync.write_config(path, plan)
+            self.assertIn(ACCOUNTS_HEADER, path.read_text())
+            self.assertFalse(paths.backup_dir().exists())
+            self.assertEqual([p.name for p in Path(tmp).iterdir()], ["config"])
 
     def test_plan_sync_treats_a_missing_file_as_empty(self):
         from roleroster import awsconfig as sync
